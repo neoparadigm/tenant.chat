@@ -20,9 +20,8 @@ All on your own hardware. Nothing leaves your machine.
 
 ## What makes it different
 
-Every other tool in this space — Maester, 365Inspect, M365SAT — is 
-PowerShell plus an HTML report. Pass or fail. No explanation. No 
-conversation. No blast radius. No memory.
+Most community tools wrap PowerShell plus an HTML report without much explanation.
+No conversation. No blast radius. No memory.
 
 tenant.chat is a local AI agent that understands your specific tenant.
 
