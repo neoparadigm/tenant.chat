@@ -1,4 +1,4 @@
-# Tenant.chat
+# Tenant.Chat
 
 > Local-first conversational AI agent for Microsoft 365 security assessment.
 
