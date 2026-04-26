@@ -1,6 +1,13 @@
 .env
+*.env
 venv/
 __pycache__/
 *.pyc
+*.pyo
 .tenantchat/
-knowledge/raw/
+*.pdf
+*.html
+dist/
+build/
+*.egg-info/
+.DS_Store
