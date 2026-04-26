@@ -1,0 +1,115 @@
+framework: Microsoft Baseline Security Mode
+version: "1.0"
+description: >
+  Microsoft's recommended security baseline covering M365 and Entra.
+  Available in M365 Admin Centre under Org Settings > Security & Privacy.
+
+controls:
+
+  - control_id: BSM-AUTH-01
+    title: "Legacy authentication blocked"
+    description: >
+      Legacy authentication protocols do not support MFA.
+      Blocking legacy auth eliminates the primary password spray
+      and credential stuffing attack vector.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      conditions.clientAppTypes: [exchangeActiveSync, other]
+      grantControls.builtInControls: [block]
+    blast_radius:
+      - "Exchange ActiveSync devices using basic auth"
+      - "IMAP and POP email clients"
+      - "Older Outlook versions pre-2013"
+      - "Applications using basic auth to Exchange"
+      - "Printers scanning to email via SMTP AUTH"
+    community_ref: "identity/legacy-auth"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/conditional-access/block-legacy-authentication
+
+  - control_id: BSM-AUTH-02
+    title: "MFA required for all users"
+    description: >
+      Multi-factor authentication must be required for all users
+      via Conditional Access policy. Per-user MFA is deprecated.
+    check_type: coverage
+    severity: critical
+    effort: low
+    graph_endpoint: /reports/authenticationMethods/userRegistrationDetails
+    expected:
+      field: isMfaRegistered
+      value: true
+      min_percent: 95
+    blast_radius:
+      - "Users who have not registered MFA will be blocked"
+      - "Shared mailboxes need exclusion or automation account"
+      - "Break glass accounts must be excluded from CA policy"
+      - "Service accounts need separate handling"
+    community_ref: "identity/mfa-registration"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/authentication/concept-mfa-howitworks
+
+  - control_id: BSM-PRIV-01
+    title: "No more than 5 permanent Global Admins"
+    description: >
+      Global Administrator is the most privileged role in Entra ID.
+      Permanent assignments increase the attack surface significantly.
+      PIM eligible assignments should be used instead.
+    check_type: threshold
+    severity: critical
+    effort: medium
+    graph_endpoint: /admins
+    expected:
+      max: 5
+    blast_radius:
+      - "Admins will need to activate PIM roles to perform admin tasks"
+      - "Emergency access break glass accounts must be excluded"
+      - "Helpdesk workflows using Global Admin need updating"
+    community_ref: "identity/pim-roles"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/roles/best-practices
+
+  - control_id: BSM-AUTH-03
+    title: "High risk sign-ins blocked by Conditional Access"
+    description: >
+      Microsoft Entra ID Protection identifies high-risk sign-in events.
+      A CA policy must block or require MFA for high risk sign-ins.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      conditions.signInRiskLevels: [high]
+    blast_radius:
+      - "Legitimate users flagged as high risk will be blocked"
+      - "Requires Entra ID P2 licence"
+      - "Break glass accounts must be excluded"
+    community_ref: "identity/risk-policies"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/identity-protection/howto-identity-protection-configure-risk-policies
+
+  - control_id: BSM-DEVICE-01
+    title: "Compliant device required for cloud app access"
+    description: >
+      Conditional Access policy must require compliant Intune-managed
+      devices for access to cloud applications. Prevents unmanaged
+      device access to corporate data.
+    check_type: presence
+    severity: high
+    effort: medium
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      grantControls.builtInControls: [compliantDevice]
+    blast_radius:
+      - "Personal and unmanaged devices will lose access"
+      - "BYOD users will be blocked until enrolled"
+      - "Guest users need separate policy exclusion"
+      - "Mobile devices need Intune enrolment completed first"
+    community_ref: "intune/device-compliance"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/conditional-access/howto-conditional-access-policy-compliant-device

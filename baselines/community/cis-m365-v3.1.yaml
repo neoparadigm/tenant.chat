@@ -1,0 +1,126 @@
+framework: CIS Microsoft 365 v3.1
+version: "3.1"
+description: >
+  CIS Microsoft 365 Foundations Benchmark v3.1.
+  Community-maintained mapping to Graph API checks.
+
+controls:
+
+  - control_id: CIS-1.1.1
+    title: "Legacy authentication blocked for all users"
+    description: >
+      Ensure legacy authentication is blocked via Conditional Access.
+      Legacy auth does not support MFA and is the primary vector
+      for credential attacks against M365 tenants.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      conditions.clientAppTypes: [exchangeActiveSync, other]
+      grantControls.builtInControls: [block]
+    blast_radius:
+      - "Exchange ActiveSync devices using basic auth"
+      - "IMAP and POP email clients"
+      - "Applications using basic auth to Exchange"
+      - "Printers using SMTP AUTH scan to email"
+    community_ref: "identity/legacy-auth"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-1.1.3
+    title: "MFA enabled for all users"
+    description: >
+      Ensure MFA is registered and enabled for all licensed users.
+      Accounts without MFA are the primary target for account takeover.
+    check_type: coverage
+    severity: critical
+    effort: low
+    graph_endpoint: /reports/authenticationMethods/userRegistrationDetails
+    expected:
+      field: isMfaRegistered
+      value: true
+      min_percent: 100
+    blast_radius:
+      - "Users without MFA will be blocked when CA policy enforced"
+      - "Service accounts need app-based auth not MFA"
+    community_ref: "identity/mfa-registration"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-1.2.1
+    title: "Fewer than 5 Global Administrators"
+    description: >
+      Ensure no more than 5 users hold the Global Administrator role.
+      Excess Global Admins significantly increase the attack surface.
+    check_type: threshold
+    severity: critical
+    effort: medium
+    graph_endpoint: /admins
+    expected:
+      max: 5
+    blast_radius:
+      - "Excess admins need roles removed and PIM eligible assignment"
+      - "Break glass accounts must be excluded from this count"
+    community_ref: "identity/pim-roles"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-2.1.1
+    title: "Password never expires for cloud-only accounts"
+    description: >
+      Cloud-only account passwords should be set to never expire.
+      Password expiry encourages weak predictable passwords and
+      conflicts with MFA-protected accounts.
+    check_type: value
+    severity: medium
+    effort: low
+    graph_endpoint: /domains
+    expected:
+      field: passwordValidityPeriodInDays
+      value: 2147483647
+    blast_radius:
+      - "Users currently near expiry will no longer be prompted"
+      - "On-premises synced accounts are not affected by this setting"
+    community_ref: "identity/password-policy"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-5.1.1
+    title: "Audit log enabled and retention sufficient"
+    description: >
+      Unified audit log must be enabled and retained for at least
+      90 days. Audit logs are required for incident investigation
+      and regulatory compliance.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Audit log availability check"
+    blast_radius:
+      - "No blast radius — enabling audit log is non-disruptive"
+    community_ref: "compliance/audit-log"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-3.1.1
+    title: "Stale devices not checked in for 30 days"
+    description: >
+      Managed devices not syncing with Intune for 30+ days may be
+      lost, stolen, or no longer compliant. These should be
+      reviewed and retired or remediated.
+    check_type: staleness
+    severity: medium
+    effort: low
+    graph_endpoint: /deviceManagement/managedDevices
+    expected:
+      field: lastSyncDateTime
+      threshold_days: 30
+    blast_radius:
+      - "Retiring stale devices removes them from compliance scope"
+      - "Users with retired devices will need to re-enrol"
+    community_ref: "intune/managed-devices"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365

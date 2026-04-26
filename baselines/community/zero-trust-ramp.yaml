@@ -1,0 +1,67 @@
+framework: Microsoft Zero Trust RaMP
+version: "1.0"
+description: >
+  Microsoft Zero Trust Rapid Modernization Plan.
+  Prioritised controls mapped to Graph API checks.
+
+controls:
+
+  - control_id: ZT-ID-01
+    title: "Phishing-resistant MFA for administrators"
+    description: >
+      All privileged accounts must use phishing-resistant MFA
+      such as FIDO2 security keys or certificate-based auth.
+      SMS and voice MFA are insufficient for admin accounts.
+    check_type: coverage
+    severity: critical
+    effort: medium
+    graph_endpoint: /reports/authenticationMethods/userRegistrationDetails
+    expected:
+      field: isMfaCapable
+      value: true
+      min_percent: 100
+    blast_radius:
+      - "Admins without phishing-resistant MFA will need to register"
+      - "FIDO2 keys or certificates need procurement and provisioning"
+    community_ref: "identity/mfa-registration"
+    references:
+      - https://learn.microsoft.com/en-us/security/zero-trust/zero-trust-identity-device-access-policies-common
+
+  - control_id: ZT-ID-02
+    title: "Guest access reviewed and restricted"
+    description: >
+      Guest users should be reviewed regularly. Unrestricted guest
+      access allows external users to enumerate your tenant directory
+      and access shared resources beyond their intended scope.
+    check_type: threshold
+    severity: medium
+    effort: low
+    graph_endpoint: /guests
+    expected:
+      max: 0
+      _note: "Flag for review — not a hard block"
+    blast_radius:
+      - "Guest cleanup requires coordination with business owners"
+      - "Active collaborations must be identified before removal"
+    community_ref: "identity/guest-users"
+    references:
+      - https://learn.microsoft.com/en-us/security/zero-trust/zero-trust-identity-device-access-policies-guest-external
+
+  - control_id: ZT-DEVICE-01
+    title: "Device compliance policies assigned to all users"
+    description: >
+      All managed devices must have a compliance policy assigned.
+      Devices without a compliance policy are marked compliant
+      by default — a significant security gap.
+    check_type: presence
+    severity: high
+    effort: medium
+    graph_endpoint: /deviceManagement/deviceCompliancePolicies
+    expected:
+      _note: "At least one compliance policy must exist and be assigned"
+    blast_radius:
+      - "Devices currently marked compliant by default may lose access"
+      - "Compliance policy settings need validation before assignment"
+    community_ref: "intune/device-compliance"
+    references:
+      - https://learn.microsoft.com/en-us/mem/intune/protect/device-compliance-get-started
