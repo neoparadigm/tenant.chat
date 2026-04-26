@@ -1,4 +1,4 @@
-# tenant.chat
+# Tenant.chat
 
 > Local-first conversational AI agent for Microsoft 365 security assessment.
 
@@ -115,8 +115,8 @@ MIT — github.com/neoparadigm/tenantchat
 
 ## Author
 
-Built by [@subh](https://linkedin.com/in/subhashishc) as part of the 
-neoparadigm open-source Modern Workplace intelligence platform.# tenant.chat
+
+built by Subh - neoparadigm open-source Modern Workplace intelligence platform.# tenant.chat
 
 Local-first conversational AI agent for M365 tenant security assessment.
 
