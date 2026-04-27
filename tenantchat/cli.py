@@ -38,6 +38,21 @@ def cli(ctx: click.Context) -> None:
         asyncio.run(_interactive_mode())
 
 
+# ── serve ─────────────────────────────────────────────────────────────────────
+
+@cli.command()
+@click.option("--host", default="127.0.0.1", show_default=True, help="Bind address.")
+@click.option("--port", default=8001, show_default=True, help="Port.")
+def serve(host: str, port: int) -> None:
+    """Launch the tenant.chat UI at http://HOST:PORT."""
+    import uvicorn
+    console.print(
+        f"[bold blue]tenant.chat[/bold blue] running at "
+        f"[underline]http://{host}:{port}[/underline]"
+    )
+    uvicorn.run("tenantchat.server:app", host=host, port=port, reload=False)
+
+
 # ── auth ──────────────────────────────────────────────────────────────────────
 
 @cli.group()
@@ -46,8 +61,8 @@ def auth() -> None:
 
 
 @auth.command("login")
-@click.option("--client-id",  default=None, help="Entra app client ID (BYOA).")
-@click.option("--tenant-id",  default=None, help="Target tenant ID.")
+@click.option("--client-id", default=None, help="Entra app client ID (BYOA).")
+@click.option("--tenant-id", default=None, help="Target tenant ID.")
 def auth_login(client_id: str | None, tenant_id: str | None) -> None:
     """Authenticate via browser — no client secret required."""
     from tenantchat.auth import AuthManager
@@ -64,8 +79,7 @@ def auth_login(client_id: str | None, tenant_id: str | None) -> None:
     if state.authenticated:
         console.print(
             f"[green]Authenticated[/green] as "
-            f"[bold]{state.account}[/bold] "
-            f"({state.tenant_id})"
+            f"[bold]{state.account}[/bold] ({state.tenant_id})"
         )
     else:
         console.print("[red]Authentication failed.[/red]")
@@ -131,12 +145,10 @@ async def _run_assessment(
         )
         return
 
-    # Collect
     collector = Collector(auth)
     with console.status("Connecting to tenant..."):
         state = await collector.collect()
 
-    # Scrub PII
     scrubber = Scrubber()
     state.users   = scrubber.scrub_list(state.users,   "user")
     state.guests  = scrubber.scrub_list(state.guests,  "user")
@@ -147,7 +159,6 @@ async def _run_assessment(
         state.mfa_registration, "user"
     )
 
-    # Assess
     assessor = Assessor()
     frameworks = {
         "all":        None,
@@ -161,7 +172,6 @@ async def _run_assessment(
         assessor.load_baselines(frameworks=frameworks)
         result = assessor.assess(state)
 
-    # Save to memory
     memory = Memory(tenant_id=state.tenant_id)
     memory.save_assessment(
         tenant_id=state.tenant_id,
@@ -192,10 +202,8 @@ async def _run_assessment(
         }, default=str))
         return
 
-    # Display results
     _display_assessment(result, state)
 
-    # User clusters
     clusterer = Clusterer()
     clusters  = clusterer.cluster_users(
         state.users,
@@ -205,7 +213,6 @@ async def _run_assessment(
     if clusters:
         _display_clusters(clusters)
 
-    # Score trend
     trend = memory.get_score_trend(state.tenant_id)
     console.print(f"\n[dim]{trend}[/dim]")
     console.print(
@@ -217,7 +224,6 @@ async def _run_assessment(
 def _display_assessment(result, state) -> None:
     from tenantchat.models import CheckStatus, Severity
 
-    # Header
     score_color = (
         "red"    if result.posture_score < 50
         else "yellow" if result.posture_score < 75
@@ -236,7 +242,6 @@ def _display_assessment(result, state) -> None:
         border_style="blue",
     ))
 
-    # Critical findings
     critical = [
         f for f in result.findings
         if f.status == CheckStatus.FAIL
@@ -246,13 +251,11 @@ def _display_assessment(result, state) -> None:
         console.print("\n[bold red]CRITICAL — Fix this week[/bold red]")
         for i, f in enumerate(critical, 1):
             console.print(
-                f"  [red]{i}.[/red] {f.title}  "
-                f"[dim][{f.control_id}][/dim]"
+                f"  [red]{i}.[/red] {f.title}  [dim][{f.control_id}][/dim]"
             )
             if f.delta:
                 console.print(f"     [dim]{f.delta}[/dim]")
 
-    # High findings
     high = [
         f for f in result.findings
         if f.status == CheckStatus.FAIL
@@ -266,7 +269,6 @@ def _display_assessment(result, state) -> None:
                 f"[dim][{f.control_id}][/dim]"
             )
 
-    # Medium findings
     medium = [
         f for f in result.findings
         if f.status == CheckStatus.FAIL
@@ -336,7 +338,9 @@ async def _run_report(
 
     auth = AuthManager()
     if not auth.status().authenticated:
-        console.print("[red]Not authenticated.[/red] Run: tenantchat auth login")
+        console.print(
+            "[red]Not authenticated.[/red] Run: tenantchat auth login"
+        )
         return
 
     collector = Collector(auth)
@@ -381,7 +385,7 @@ async def _interactive_mode() -> None:
 
     console.print(Panel(
         "[bold blue]tenant.chat[/bold blue] v0.1.0\n"
-        "Local-first M365 security assessment agent\n\n"
+        "Local-first tenant intelligence\n\n"
         "Commands: /assess  /blast <change>  /report  "
         "/why <id>  /fix <id>  /history  /quit",
         border_style="blue",
@@ -401,7 +405,6 @@ async def _interactive_mode() -> None:
     memory     = Memory(tenant_id=tenant_id)
     agent      = Agent()
 
-    # Show score trend if available
     trend = memory.get_score_trend(tenant_id)
     if "First" not in trend:
         console.print(f"[dim]{trend}[/dim]")
@@ -422,7 +425,6 @@ async def _interactive_mode() -> None:
             console.print("[dim]Goodbye.[/dim]")
             break
 
-        # Collect on first assess
         if "/assess" in user_input.lower() or (
             state is None and "assess" in user_input.lower()
         ):
@@ -478,7 +480,6 @@ async def _interactive_mode() -> None:
                     )
             continue
 
-        # All other input — send to agent
         with console.status("Thinking..."):
             response = await agent.chat(
                 message=user_input,

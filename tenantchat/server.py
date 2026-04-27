@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import os
+from dotenv import load_dotenv
+load_dotenv()
 from pathlib import Path
 from typing import Any
 
@@ -14,8 +16,17 @@ from pydantic import BaseModel
 from rich.console import Console
 
 console = Console()
-app     = FastAPI(title="tenant.chat", version="0.1.0")
+from fastapi.middleware.cors import CORSMiddleware
 
+app = FastAPI(title="tenant.chat", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 _UI_DIR = Path(__file__).parent.parent / "ui"
 
 # ── Models ────────────────────────────────────────────────────────────────────
@@ -50,18 +61,23 @@ _state: dict[str, Any] = {
 
 @app.on_event("startup")
 async def startup() -> None:
-    from tenantchat.agent import Agent
     from tenantchat.auth import AuthManager
+    from tenantchat.agent import Agent
     from tenantchat.memory import Memory
 
-    auth = AuthManager()
-    s    = auth.status()
-    if s.authenticated:
-        _state["tenant_id"] = s.tenant_id
-        _state["memory"]    = Memory(tenant_id=s.tenant_id)
+    auth  = AuthManager()
+    state = auth.status()
+
+    if state.authenticated:
+        _state["tenant_id"]     = state.tenant_id
+        _state["account"]       = state.account
+        _state["authenticated"] = True
+        _state["memory"]        = Memory(tenant_id=state.tenant_id)
+        token = auth.get_token()
+        if token:
+            _state["token"] = token
 
     _state["agent"] = Agent()
-
 # ── Routes ────────────────────────────────────────────────────────────────────
 
 @app.get("/", include_in_schema=False)
@@ -83,6 +99,59 @@ async def auth_status() -> AuthStatusResponse:
         account=state.account,
         tenant_id=state.tenant_id,
     )
+
+@app.post("/api/auth/login")
+async def auth_login(
+    client_id: str | None = None,
+    tenant_id: str | None = None,
+) -> JSONResponse:
+    """Trigger browser-based PKCE login."""
+    from tenantchat.auth import AuthManager
+    import threading
+
+    cid = client_id or os.environ.get("TENANTCHAT_CLIENT_ID", "")
+    tid = tenant_id or os.environ.get("TENANTCHAT_TENANT_ID", "organizations")
+
+    if not cid:
+        return JSONResponse(
+            {"status": "error", "message": "No client ID. Set TENANTCHAT_CLIENT_ID environment variable."},
+            status_code=400,
+        )
+
+    def _login() -> None:
+        try:
+            auth  = AuthManager(client_id=cid, tenant_id=tid)
+            state = auth.login()
+            if state.authenticated:
+                _state["tenant_id"] = state.tenant_id
+                _state["authenticated"] = True
+                _state["account"] = state.account
+                from tenantchat.memory import Memory
+                _state["memory"] = Memory(tenant_id=state.tenant_id)
+        except Exception as e:
+            _state["auth_error"] = str(e)
+
+    thread = threading.Thread(target=_login, daemon=True)
+    thread.start()
+    return JSONResponse({"status": "login_initiated"})
+
+
+@app.get("/api/auth/poll")
+async def auth_poll() -> JSONResponse:
+    """Poll for auth completion — UI calls this after login_initiated."""
+    if _state.get("authenticated"):
+        return JSONResponse({
+            "authenticated": True,
+            "account":    _state.get("account", ""),
+            "tenant_id":  _state.get("tenant_id", ""),
+        })
+    if _state.get("auth_error"):
+        return JSONResponse({
+            "authenticated": False,
+            "error": _state.get("auth_error"),
+        })
+    return JSONResponse({"authenticated": False, "pending": True})
+
 
 @app.post("/api/auth/login")
 async def auth_login() -> JSONResponse:
