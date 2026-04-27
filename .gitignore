@@ -13,3 +13,9 @@ build/
 .DS_Store
 .env
 .env
+venv/
+*.egg-info/
+__pycache__/
+*.pyc
+*.pdf
+*.html
