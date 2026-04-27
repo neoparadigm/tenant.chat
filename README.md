@@ -1,6 +1,7 @@
 # Tenant.Chat
 
-                        <img width="576" height="266" alt="image" src="https://github.com/user-attachments/assets/215db755-f563-4aa6-b434-cf78d65cbf66" />
+<img width="769" height="295" alt="image" src="https://github.com/user-attachments/assets/1cc0def1-2646-46c3-b952-3f6d190836d4" />
+
 
 
 > Local-first conversational AI agent for Microsoft tenant intelligence
