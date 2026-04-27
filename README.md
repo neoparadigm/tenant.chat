@@ -1,5 +1,8 @@
 # Tenant.Chat
 
+<img width="576" height="266" alt="image" src="https://github.com/user-attachments/assets/215db755-f563-4aa6-b434-cf78d65cbf66" />
+
+
 > Local-first conversational AI agent for Microsoft 365 security assessment.
 
 Connect to your tenant. Assess against every major security baseline. 
@@ -24,6 +27,10 @@ Most community tools wrap PowerShell plus an HTML report without much explanatio
 No conversation. No blast radius. No memory.
 
 tenant.chat is a local AI agent that understands your specific tenant.
+
+
+<img width="1872" height="1052" alt="image" src="https://github.com/user-attachments/assets/418251f8-6353-4a73-870a-a4013feaf5af" />
+
 
 ## Install
 
