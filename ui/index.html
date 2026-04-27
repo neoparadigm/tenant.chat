@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>tenant.chat</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --mono: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace; }
+
+[data-theme="dark"] {
+  --bg: #080810; --bg-1: #0e0e18; --bg-2: #14141f; --bg-3: #1c1c2a;
+  --border: #1e1e30; --border-2: #28283c;
+  --text: #e8e8f0; --text-2: #a8a8c0; --text-3: #606080; --text-inv: #000;
+  --accent: #3b9ede; --accent-2: #0c2240;
+  --green: #5dd45d; --yellow: #e8c97e; --red: #e87878; --cyan: #6bc8d4;
+  --dim: rgba(80,80,180,0.06);
+  --glow: 0 0 40px rgba(0,120,212,0.15), 0 0 80px rgba(0,120,212,0.06);
+}
+[data-theme="light"] {
+  --bg: #f5f6fa; --bg-1: #ffffff; --bg-2: #eef0f6; --bg-3: #e2e5ef;
+  --border: #d0d4e4; --border-2: #b8bdd0;
+  --text: #0d0e14; --text-2: #3a3d52; --text-3: #7a7e99; --text-inv: #fff;
+  --accent: #0065b8; --accent-2: #daeaf8;
+  --green: #0a6b0a; --yellow: #7a4f00; --red: #8b1a20; --cyan: #005a80;
+  --dim: rgba(0,0,80,0.04);
+  --glow: none;
+  --sidebar-bg: #eeeff5;
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; line-height: 1.5; overflow: hidden; -webkit-font-smoothing: antialiased; }
+
+.shell { display: grid; grid-template-rows: 35px 1fr 22px; grid-template-columns: 220px 1fr; height: 100vh; }
+
+/* TITLEBAR */
+.titlebar { grid-column: 1/-1; background: var(--bg-1); border-bottom: 1px solid var(--border); box-shadow: 0 1px 0 var(--border); display: flex; align-items: center; padding: 0 0 0 12px; }
+.tb-brand { display: flex; align-items: center; gap: 8px; padding-right: 16px; border-right: 1px solid var(--border); height: 100%; color: var(--text); font-size: 12px; font-weight: 600; letter-spacing: .5px; }
+.tb-icon { width: 16px; height: 16px; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.tb-nav { display: flex; height: 100%; }
+.tb-tab { height: 100%; padding: 0 14px; display: flex; align-items: center; font-size: 11px; color: var(--text-3); cursor: pointer; border-right: 1px solid transparent; border-left: 1px solid transparent; transition: color .1s,background .1s; letter-spacing: .3px; position: relative; }
+.tb-tab:hover { color: var(--text-2); background: var(--dim); }
+.tb-tab.active { color: var(--text); background: var(--bg); border-color: var(--border); border-bottom: 1px solid var(--bg); margin-bottom: -1px; box-shadow: inset 0 1px 0 var(--accent); }
+.tb-tab.active::after { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: var(--accent); }
+.tb-right { margin-left: auto; display: flex; align-items: center; height: 100%; border-left: 1px solid var(--border); }
+.tb-btn { height: 100%; padding: 0 12px; font-family: var(--mono); font-size: 11px; color: var(--text-3); background: transparent; border: none; border-right: 1px solid var(--border); cursor: pointer; transition: color .1s,background .1s; letter-spacing: .3px; }
+.tb-btn:hover { color: var(--text-2); background: var(--dim); }
+.tb-btn.connected { color: var(--green); }
+
+/* SIDEBAR */
+.sidebar { background: var(--bg-1); border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; }
+.sb-group { padding: 16px 0 4px; }
+.sb-label { padding: 0 12px 6px; font-size: 10px; color: var(--text-2); letter-spacing: 1.5px; text-transform: uppercase; }
+.sb-item { display: flex; align-items: center; gap: 8px; padding: 5px 12px; font-size: 12px; color: var(--text-2); cursor: pointer; transition: color .1s,background .1s; border-left: 2px solid transparent; }
+.sb-item:hover { color: #fff; background: rgba(59,158,222,0.12); opacity: 1; }
+.sb-item.active { color: #fff; border-left-color: var(--accent); background: rgba(59,158,222,0.18); opacity: 1; font-weight: 500; }
+.sb-item .si { width: 14px; font-size: 10px; color: inherit; opacity: .6; flex-shrink: 0; text-align: center; }
+.sb-sep { height: 1px; background: var(--border); margin: 8px 0; }
+.sb-score { margin: auto 0 0; padding: 12px; border-top: 1px solid var(--border); display: none; }
+.ss-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; }
+.ss-num { font-size: 28px; font-weight: 700; line-height: 1; color: var(--text); }
+.ss-label { font-size: 10px; color: var(--text-3); letter-spacing: 1px; }
+.ss-bar { height: 2px; background: var(--border-2); }
+.ss-fill { height: 100%; transition: width .6s ease; }
+
+/* MAIN */
+.main { overflow: hidden; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
+.page { display: none; flex: 1; flex-direction: column; overflow: hidden; min-height: 0; }
+.page.active { display: flex; }
+
+/* STATUS BAR */
+.statusbar { grid-column: 1/-1; background: var(--accent); display: flex; align-items: center; padding: 0 10px; gap: 16px; height: 22px; }
+.sb-seg { font-size: 10px; color: rgba(255,255,255,.75); letter-spacing: .3px; display: flex; align-items: center; gap: 6px; }
+.sb-seg.bright { color: #fff; font-weight: 600; }
+.sb-seg.right { margin-left: auto; }
+.sb-div { width: 1px; height: 12px; background: rgba(255,255,255,.25); }
+kbd { font-family: var(--mono); font-size: 9px; background: rgba(255,255,255,.15); padding: 1px 4px; border-radius: 2px; color: #fff; }
+
+/* ── CHAT ── */
+.chat-wrap { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.chat-output { flex: 1; overflow-y: auto; min-height: 0; background: var(--bg); }
+.chat-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 0; padding: 40px; color: var(--text-3); }
+.ce-logo {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 28px;
+  color: #0078d4;
+  text-align: center;
+  margin-bottom: 24px;
+  letter-spacing: 2px;
+  line-height: 1.4;
+  text-shadow:
+    3px 3px 0 #004a8c,
+    0 0 20px rgba(0,120,212,0.6),
+    0 0 40px rgba(0,120,212,0.3);
+  animation: logoPulse 4s ease infinite;
+}
+@keyframes logoPulse {
+  0%,100% { text-shadow: 3px 3px 0 #004a8c, 0 0 20px rgba(0,120,212,0.6), 0 0 40px rgba(0,120,212,0.3); }
+  50%      { text-shadow: 3px 3px 0 #004a8c, 0 0 30px rgba(0,120,212,0.9), 0 0 60px rgba(0,120,212,0.5); }
+}
+[data-theme="light"] .ce-logo {
+  color: #0065b8;
+  text-shadow: 3px 3px 0 #a0c4e8, 0 0 12px rgba(0,101,184,0.2);
+  animation: none;
+}
+.ce-line { font-size: 11px; color: var(--text-2); margin-bottom: 16px; letter-spacing: .5px; }
+.ce-cmds { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.ce-cmd { font-size: 11px; color: var(--text-2); border: 1px solid var(--border-2); padding: 3px 10px; cursor: pointer; transition: all .15s; letter-spacing: .3px; }
+.ce-cmd:hover { border-color: var(--accent); color: #fff; background: rgba(59,158,222,0.15); transform: translateY(-1px); box-shadow: 0 2px 12px rgba(59,158,222,0.25); }
+
+.t-line { display: flex; padding: 3px 16px; gap: 0; font-size: 12px; line-height: 1.5; animation: fi .1s ease; border-bottom: 1px solid transparent; }
+@keyframes fi { from{opacity:0;transform:translateY(2px)} to{opacity:1;transform:translateY(0)} }
+.t-line.user { background: var(--dim); border-bottom: 1px solid var(--border); }
+.t-line.error { background: rgba(224,108,117,.06); }
+.t-line.system { background: rgba(0,120,212,.06); }
+.t-prompt { flex-shrink: 0; margin-right: 10px; padding-top: 1px; min-width: 80px; display: flex; align-items: flex-start; gap: 6px; }
+.t-prompt .p-label { font-size: 10px; letter-spacing: .5px; }
+.t-prompt .p-time { font-size: 10px; color: var(--text-3); }
+.t-content { flex: 1; min-width: 0; padding: 2px 0; color: var(--text); font-size: 12px; line-height: 1.6; word-break: break-word; }
+.t-content.muted { color: var(--text); opacity: 0.75; }
+.t-content strong { color: var(--text); font-weight: 600; }
+.t-content code { color: var(--cyan); background: var(--bg-3); padding: 0 4px; font-size: 11px; border: 1px solid var(--border); }
+
+.thinking { display: flex; align-items: center; gap: 3px; padding: 2px 0; }
+.thinking span { width: 3px; height: 3px; background: var(--text-3); animation: bl 1.2s ease infinite; }
+.thinking span:nth-child(2) { animation-delay: .2s; }
+.thinking span:nth-child(3) { animation-delay: .4s; }
+@keyframes bl { 0%,80%,100%{opacity:.2}40%{opacity:1} }
+
+.chat-input-bar { border-top: 1px solid var(--border); background: var(--bg-1); box-shadow: 0 -1px 0 var(--border); }
+.cib-row { display: flex; align-items: center; border-bottom: 1px solid var(--border); }
+.cib-prompt { padding: 0 12px; color: var(--accent); font-size: 13px; font-weight: 600; background: var(--bg-2); border-right: 1px solid var(--border); display: flex; align-items: center; height: 36px; flex-shrink: 0; text-shadow: 0 0 8px rgba(0,120,212,0.6); }
+.cib-input { flex: 1; background: transparent; border: none; outline: none; font-family: var(--mono); font-size: 12px; color: var(--text); padding: 0 12px; height: 36px; caret-color: var(--accent); }
+.cib-input::placeholder { color: var(--text-3); }
+.cib-send { height: 36px; padding: 0 14px; background: var(--accent); border: none; border-left: 1px solid var(--border); color: #fff; font-family: var(--mono); font-size: 11px; cursor: pointer; letter-spacing: .5px; transition: background .1s; flex-shrink: 0; }
+.cib-send:hover { background: #106ebe; }
+.cib-send:disabled { background: var(--bg-3); color: var(--text-3); cursor: not-allowed; }
+.cib-hints { display: flex; align-items: center; padding: 0 12px; height: 28px; overflow-x: auto; scrollbar-width: none; gap: 0; }
+.cib-hints::-webkit-scrollbar { display: none; }
+.cib-hint { font-size: 10px; color: var(--text-2); padding: 2px 8px; border-right: 1px solid var(--border); cursor: pointer; transition: all .15s; white-space: nowrap; flex-shrink: 0; }
+.cib-hint:hover { color: #fff; background: rgba(59,158,222,0.15); }
+
+/* ── ASSESS ── */
+.assess-wrap { overflow-y: auto; flex: 1; }
+.page-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--bg-1); }
+.ph-title { font-size: 11px; color: var(--text-2); letter-spacing: 1.5px; text-transform: uppercase; }
+.ph-actions { display: flex; align-items: center; }
+.btn { font-family: var(--mono); font-size: 11px; padding: 5px 12px; border: 1px solid var(--border-2); background: transparent; color: var(--text); cursor: pointer; transition: all .1s; letter-spacing: .3px; border-right: none; }
+.btn:last-child { border-right: 1px solid var(--border-2); }
+.btn:hover { color: var(--text); border-color: var(--text-3); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; border-right: 1px solid var(--accent); }
+.btn.primary:hover { background: #106ebe; }
+select.btn { appearance: none; cursor: pointer; }
+.metrics-row { display: grid; grid-template-columns: repeat(5,1fr); border-bottom: 1px solid var(--border); }
+.metric { padding: 14px 16px; border-right: 1px solid var(--border); }
+.metric:last-child { border-right: none; }
+.m-val { font-size: 26px; font-weight: 700; line-height: 1; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+.m-label { font-size: 10px; color: var(--text-3); letter-spacing: 1px; text-transform: uppercase; }
+.findings-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.findings-table th { text-align: left; padding: 7px 12px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-2); border-bottom: 1px solid var(--border); background: var(--bg-1); font-weight: 400; position: sticky; top: 0; z-index: 1; }
+.findings-table td { padding: 7px 12px; border-bottom: 1px solid var(--border); color: var(--text-2); vertical-align: middle; }
+.findings-table tr:hover td { background: var(--dim); color: var(--text); cursor: pointer; }
+.td-id { font-size: 10px; color: var(--text-3); white-space: nowrap; }
+.td-title { color: var(--text); }
+.td-delta { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+.drift-col { display: flex; align-items: center; gap: 8px; }
+.drift-bar { width: 48px; height: 2px; background: var(--border-2); }
+.drift-fill { height: 100%; }
+.drift-pct { font-size: 10px; color: var(--text-3); min-width: 28px; text-align: right; }
+.section-row td { background: var(--bg-2) !important; color: var(--text-2) !important; font-size: 10px !important; letter-spacing: 1px; text-transform: uppercase; padding: 5px 12px !important; border-bottom: 1px solid var(--border); }
+.tag { font-size: 10px; font-weight: 600; letter-spacing: .5px; padding: 1px 6px; text-transform: uppercase; }
+.tag.critical { color: var(--red); border: 1px solid var(--red); background: rgba(224,108,117,.08); }
+.tag.high { color: var(--yellow); border: 1px solid var(--yellow); background: rgba(229,192,123,.08); }
+.tag.medium { color: var(--accent); border: 1px solid var(--accent); background: var(--accent-2); }
+.tag.low { color: var(--text-3); border: 1px solid var(--border-2); }
+.tag.pass { color: var(--green); border: 1px solid var(--green); background: rgba(78,201,78,.08); }
+
+/* ── BLAST ── */
+.blast-wrap { overflow-y: auto; flex: 1; }
+.blast-input-row { display: flex; border-bottom: 1px solid var(--border); }
+.blast-prompt { padding: 0 12px; color: var(--accent); font-size: 13px; font-weight: 600; background: var(--bg-2); border-right: 1px solid var(--border); display: flex; align-items: center; height: 36px; flex-shrink: 0; }
+.blast-input { flex: 1; background: transparent; border: none; outline: none; font-family: var(--mono); font-size: 12px; color: var(--text); padding: 0 12px; height: 36px; caret-color: var(--accent); }
+.blast-input::placeholder { color: var(--text-3); }
+.blast-hints { display: flex; gap: 0; border-bottom: 1px solid var(--border); background: var(--bg-1); }
+.blast-hint { font-size: 10px; color: var(--text-2); padding: 6px 12px; border-right: 1px solid var(--border); cursor: pointer; transition: all .15s; }
+.blast-hint:hover { color: #fff; background: rgba(59,158,222,0.15); }
+.blast-output { padding: 16px; }
+.blast-result { border: 1px solid var(--border); font-size: 12px; }
+.br-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--bg-2); border-bottom: 1px solid var(--border); }
+.br-change { color: var(--text); font-size: 12px; }
+.br-risk { font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 2px 8px; text-transform: uppercase; }
+.br-risk.high { color: var(--yellow); border: 1px solid var(--yellow); }
+.br-risk.critical { color: var(--red); border: 1px solid var(--red); }
+.br-risk.medium { color: var(--accent); border: 1px solid var(--accent); }
+.br-risk.unknown { color: var(--text-3); border: 1px solid var(--border-2); }
+.br-section { padding: 12px; border-bottom: 1px solid var(--border); }
+.br-section:last-child { border-bottom: none; }
+.br-section-title { font-size: 10px; color: var(--text-3); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 10px; }
+.br-item { display: flex; gap: 10px; margin-bottom: 6px; color: var(--text-2); font-size: 11px; line-height: 1.4; align-items: flex-start; }
+.br-item::before { content: '──'; color: var(--text-3); flex-shrink: 0; font-size: 10px; margin-top: 2px; }
+.br-item.specific { color: var(--text); }
+.br-item.specific::before { content: '!!'; color: var(--red); font-weight: 700; }
+.br-seq { display: flex; gap: 10px; margin-bottom: 8px; font-size: 11px; color: var(--text-2); line-height: 1.4; align-items: flex-start; }
+.br-seq-n { font-size: 10px; color: var(--text-3); border: 1px solid var(--border-2); width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+/* ── CLUSTERS ── */
+.clusters-wrap { overflow-y: auto; flex: 1; }
+.cluster-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.cluster-table th { text-align: left; padding: 7px 12px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-3); border-bottom: 1px solid var(--border); background: var(--bg-1); font-weight: 400; }
+.cluster-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-2); vertical-align: top; }
+.cluster-table tr:hover td { background: var(--dim); }
+.ct-label { color: var(--text); font-weight: 500; }
+.ct-action { font-size: 11px; color: var(--text-3); margin-top: 4px; line-height: 1.4; }
+.ct-char { font-size: 11px; display: flex; gap: 6px; align-items: flex-start; margin-bottom: 2px; }
+.ct-char::before { content: '·'; color: var(--text-3); flex-shrink: 0; }
+
+/* ── REPORT ── */
+.report-wrap { overflow-y: auto; flex: 1; padding: 16px; }
+.report-table { width: 100%; border-collapse: collapse; border: 1px solid var(--border); font-size: 12px; margin-top: 12px; }
+.report-table th { text-align: left; padding: 8px 12px; background: var(--bg-2); border-bottom: 1px solid var(--border); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-3); font-weight: 400; }
+.report-table td { padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-2); vertical-align: top; }
+.report-table td:first-child { color: var(--text); white-space: nowrap; }
+.report-table tr:hover td { background: var(--dim); cursor: pointer; }
+.report-table tr:last-child td { border-bottom: none; }
+.rt-desc { font-size: 11px; color: var(--text-3); margin-top: 3px; line-height: 1.4; }
+.report-status { font-size: 11px; color: var(--text-3); margin-top: 12px; padding: 8px 12px; border: 1px solid var(--border); background: var(--bg-1); }
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-2); }
+
+/* ── INTERACTIONS ── */
+
+/* Sidebar items - hover slide */
+.sb-item { transition: color .15s, background .15s, border-color .15s, padding-left .15s; }
+.sb-item:hover { padding-left: 16px; }
+.sb-item.active { padding-left: 16px; }
+
+/* Input focus glow */
+.cib-row:focus-within { box-shadow: 0 0 0 1px var(--accent), 0 0 12px rgba(0,120,212,0.15); }
+.cib-input:focus { background: transparent; }
+
+/* Send button pulse on hover */
+.cib-send { transition: background .15s, box-shadow .15s; }
+.cib-send:hover { box-shadow: 0 0 12px rgba(0,120,212,0.4); }
+
+/* Tab hover glow */
+.tb-tab { transition: color .15s, background .15s, box-shadow .15s; }
+.tb-tab:hover { box-shadow: inset 0 -2px 0 var(--accent); color: var(--text); }
+
+/* Findings rows - left border reveal on hover */
+.findings-table tr { transition: background .1s; }
+.findings-table tr:hover .td-title { color: var(--accent); }
+
+/* ASCII logo - typing cursor blink */
+.ce-logo::after {
+  content: '█';
+  color: var(--accent);
+  animation: cursor-blink 1.2s step-end infinite;
+  font-size: 14px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+@keyframes cursor-blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* Chat empty fade in */
+.chat-empty { animation: fadeUp .4s ease; }
+@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+/* Message lines - hover highlight */
+.t-line { transition: background .1s; }
+.t-line:hover { background: var(--dim); }
+.t-line.user:hover { background: rgba(80,80,180,0.08); }
+
+/* Tag hover */
+.tag { transition: box-shadow .15s; cursor: default; }
+.tag.critical:hover { box-shadow: 0 0 8px rgba(224,108,117,0.4); }
+.tag.high:hover { box-shadow: 0 0 8px rgba(229,192,123,0.4); }
+.tag.pass:hover { box-shadow: 0 0 8px rgba(78,201,78,0.4); }
+
+/* Blast hints - underline on hover */
+.blast-hint { transition: color .1s, border-bottom .1s; border-bottom: 1px solid transparent; }
+.blast-hint:hover { border-bottom-color: var(--accent); }
+
+/* Score widget glow when populated */
+.sb-score { transition: opacity .3s; }
+.ss-fill { box-shadow: 1px 0 6px currentColor; }
+
+/* Active tab glow stronger */
+.tb-tab.active { box-shadow: inset 0 2px 0 var(--accent), inset 0 -1px 0 var(--bg); }
+
+/* Metric values - hover brighten */
+.metric { transition: background .15s; cursor: default; }
+.metric:hover { background: var(--dim); }
+
+/* Blast run button */
+.blast-input:focus { background: rgba(0,120,212,0.04); }
+.blast-input-row:focus-within { box-shadow: 0 0 0 1px var(--accent), 0 0 12px rgba(0,120,212,0.1); }
+
+/* Section rows in findings */
+.section-row { transition: background .1s; }
+
+/* Smooth page transitions */
+.page.active { animation: pageIn .15s ease; }
+@keyframes pageIn { from{opacity:0} to{opacity:1} }
+
+/* cmd chips */
+.ce-cmd { transition: all .15s; }
+.ce-cmd:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,120,212,0.2); }
+
+/* Auth button connected pulse */
+.tb-btn.connected { animation: connectedPulse 3s ease infinite; }
+@keyframes connectedPulse { 0%,100%{opacity:1} 50%{opacity:0.7} }
+
+/* Thinking dots - color shift */
+.thinking span { background: var(--accent); }
+
+/* report table rows */
+.report-table tr { transition: background .1s; }
+
+/* Scrollbar accent */
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+
+/* ── LIGHT MODE OVERRIDES ── */
+[data-theme="light"] .titlebar { background: #ffffff; border-bottom: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+[data-theme="light"] .sidebar { background: #f0f1f8; border-right: 1px solid var(--border); }
+[data-theme="light"] .sb-item { color: var(--text-2); }
+[data-theme="light"] .sb-item:hover { background: rgba(0,101,184,0.06); color: var(--text); }
+[data-theme="light"] .sb-item.active { background: rgba(0,101,184,0.1); color: var(--accent); }
+[data-theme="light"] .sb-label { color: var(--text-3); }
+[data-theme="light"] .tb-tab { color: var(--text-3); }
+[data-theme="light"] .tb-tab:hover { color: var(--text-2); background: rgba(0,0,0,0.04); }
+[data-theme="light"] .tb-tab.active { color: var(--text); background: var(--bg); }
+[data-theme="light"] .tb-btn { color: var(--text-3); }
+[data-theme="light"] .tb-btn.connected { color: var(--green); }
+[data-theme="light"] .chat-output { background: var(--bg); }
+[data-theme="light"] .t-line { border-bottom-color: var(--border); }
+[data-theme="light"] .t-line.user { background: rgba(0,0,80,0.03); }
+[data-theme="light"] .t-content { color: var(--text); }
+[data-theme="light"] .t-content.muted { color: var(--text); opacity: 0.75; }
+[data-theme="light"] .t-content code { color: var(--cyan); background: var(--bg-3); border-color: var(--border); }
+[data-theme="light"] .t-content strong { color: var(--text); }
+[data-theme="light"] .chat-input-bar { background: #ffffff; border-top: 1px solid var(--border); box-shadow: 0 -2px 6px rgba(0,0,0,0.06); }
+[data-theme="light"] .cib-prompt { background: var(--bg-2); color: var(--accent); text-shadow: none; }
+[data-theme="light"] .cib-input { color: var(--text); }
+[data-theme="light"] .cib-hint { color: var(--text-3); border-right-color: var(--border); }
+[data-theme="light"] .cib-hint:hover { color: #fff; background: rgba(59,158,222,0.15); }
+[data-theme="light"] .ce-line { color: var(--text-3); }
+[data-theme="light"] .ce-cmd { color: var(--text-3); border-color: var(--border); }
+[data-theme="light"] .ce-cmd:hover { color: var(--accent); border-color: var(--accent); }
+[data-theme="light"] .ce-ascii::after { color: var(--accent); }
+[data-theme="light"] .page-header { background: #ffffff; border-bottom: 1px solid var(--border); }
+[data-theme="light"] .ph-title { color: var(--text-3); }
+[data-theme="light"] .metrics-row { border-bottom: 1px solid var(--border); }
+[data-theme="light"] .metric { background: #fff; }
+[data-theme="light"] .metric:hover { background: var(--dim); }
+[data-theme="light"] .m-val { color: var(--text); }
+[data-theme="light"] .m-label { color: var(--text-3); }
+[data-theme="light"] .findings-table th { background: #f0f1f8; color: var(--text-3); border-bottom-color: var(--border); }
+[data-theme="light"] .findings-table td { color: var(--text-2); border-bottom-color: var(--border); }
+[data-theme="light"] .findings-table tr:hover td { background: rgba(0,101,184,0.04); color: var(--text); }
+[data-theme="light"] .td-title { color: var(--text); }
+[data-theme="light"] .td-delta { color: var(--text-3); }
+[data-theme="light"] .td-id { color: var(--text-3); }
+[data-theme="light"] .section-row td { background: #e8eaf4 !important; color: var(--text-3) !important; }
+[data-theme="light"] .blast-prompt { background: var(--bg-2); color: var(--accent); }
+[data-theme="light"] .blast-input { color: var(--text); }
+[data-theme="light"] .blast-hints { background: #f0f1f8; border-bottom-color: var(--border); }
+[data-theme="light"] .blast-hint { color: var(--text-3); border-right-color: var(--border); }
+[data-theme="light"] .blast-hint:hover { color: #fff; background: rgba(59,158,222,0.15); }
+[data-theme="light"] .br-section-title { color: var(--text-3); }
+[data-theme="light"] .br-item { color: var(--text-2); }
+[data-theme="light"] .br-item::before { color: var(--text-3); }
+[data-theme="light"] .br-item.specific { color: var(--text); }
+[data-theme="light"] .br-seq { color: var(--text-2); }
+[data-theme="light"] .br-seq-n { color: var(--text-3); border-color: var(--border-2); }
+[data-theme="light"] .br-change { color: var(--text); }
+[data-theme="light"] .cluster-table th { background: #f0f1f8; color: var(--text-3); }
+[data-theme="light"] .cluster-table td { color: var(--text-2); border-bottom-color: var(--border); }
+[data-theme="light"] .ct-label { color: var(--text); }
+[data-theme="light"] .ct-action { color: var(--text-3); }
+[data-theme="light"] .ct-char { color: var(--text-2); }
+[data-theme="light"] .sb-score { border-top-color: var(--border); }
+[data-theme="light"] .ss-num { color: var(--text); }
+[data-theme="light"] .ss-label { color: var(--text-3); }
+[data-theme="light"] .report-table th { background: #f0f1f8; color: var(--text-3); }
+[data-theme="light"] .report-table td { color: var(--text-2); border-bottom-color: var(--border); }
+[data-theme="light"] .report-table td:first-child { color: var(--text); }
+[data-theme="light"] .rt-desc { color: var(--text-3); }
+[data-theme="light"] .report-status { color: var(--text-3); background: #fff; border-color: var(--border); }
+[data-theme="light"] .thinking span { background: var(--accent); }
+[data-theme="light"] .cib-row:focus-within { box-shadow: 0 0 0 1px var(--accent), 0 0 8px rgba(0,101,184,0.12); }
+[data-theme="light"] .blast-input-row:focus-within { box-shadow: 0 0 0 1px var(--accent), 0 0 8px rgba(0,101,184,0.08); }
+[data-theme="light"] .sb-sep { background: var(--border); }
+[data-theme="light"] .ce-cmd:hover { box-shadow: 0 2px 8px rgba(0,101,184,0.15); }
+
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="titlebar">
+    <div class="tb-brand">
+      <div class="tb-icon">tc</div>
+      tenant.chat
+    </div>
+    <nav class="tb-nav">
+      <div class="tb-tab active" onclick="nav('chat')">chat</div>
+      <div class="tb-tab" onclick="nav('assess')">assess</div>
+      <div class="tb-tab" onclick="nav('blast')">blast</div>
+      <div class="tb-tab" onclick="nav('clusters')">clusters</div>
+      <div class="tb-tab" onclick="nav('report')">report</div>
+    </nav>
+    <div class="tb-right">
+      <button class="tb-btn" id="theme-btn" onclick="toggleTheme()">light</button>
+      <button class="tb-btn" id="auth-btn" onclick="handleAuth()">connect tenant</button>
+    </div>
+  </header>
+
+  <aside class="sidebar">
+    <div class="sb-group">
+      <div class="sb-label">Commands</div>
+      <div class="sb-item active" onclick="cmd('/assess')"><span class="si">&gt;</span>/assess</div>
+      <div class="sb-item" onclick="cmd('/blast block legacy auth')"><span class="si">&gt;</span>/blast</div>
+      <div class="sb-item" onclick="cmd('/report')"><span class="si">&gt;</span>/report</div>
+      <div class="sb-item" onclick="cmd('/history')"><span class="si">&gt;</span>/history</div>
+    </div>
+    <div class="sb-sep"></div>
+    <div class="sb-group">
+      <div class="sb-label">Checks</div>
+      <div class="sb-item" onclick="ask('legacy authentication status')"><span class="si">·</span>legacy auth</div>
+      <div class="sb-item" onclick="ask('MFA registration coverage')"><span class="si">·</span>mfa coverage</div>
+      <div class="sb-item" onclick="ask('Global Admin count and PIM')"><span class="si">·</span>global admins</div>
+      <div class="sb-item" onclick="ask('device compliance posture')"><span class="si">·</span>device compliance</div>
+      <div class="sb-item" onclick="ask('Conditional Access policies')"><span class="si">·</span>ca policies</div>
+      <div class="sb-item" onclick="ask('Secure Score breakdown')"><span class="si">·</span>secure score</div>
+    </div>
+    <div class="sb-sep"></div>
+    <div class="sb-group">
+      <div class="sb-label">Baselines</div>
+      <div class="sb-item" onclick="cmd('/assess --baseline microsoft')"><span class="si">·</span>microsoft bsm</div>
+      <div class="sb-item" onclick="cmd('/assess --baseline cis')"><span class="si">·</span>cis m365 v3.1</div>
+      <div class="sb-item" onclick="cmd('/assess --baseline zero-trust')"><span class="si">·</span>zero trust ramp</div>
+    </div>
+    <div class="sb-score" id="sb-score">
+      <div class="ss-row"><div class="ss-num" id="ss-num">--</div><div class="ss-label">/100</div></div>
+      <div class="ss-bar"><div class="ss-fill" id="ss-fill" style="width:0%"></div></div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- CHAT -->
+    <div class="page active" id="page-chat">
+      <div class="chat-wrap">
+        <div class="chat-output" id="chat-output">
+          <div class="chat-empty" id="chat-empty">
+                        <div class="ce-logo" id="ce-ascii">tenant.chat</div>
+            <div class="ce-line">local-first tenant intelligence</div>
+            <div class="ce-cmds">
+              <div class="ce-cmd" onclick="send('/assess')">/assess</div>
+              <div class="ce-cmd" onclick="send('/blast block legacy auth')">/blast</div>
+              <div class="ce-cmd" onclick="send('/report')">/report</div>
+              <div class="ce-cmd" onclick="send('/history')">/history</div>
+              <div class="ce-cmd" onclick="send('what is my security posture?')">posture</div>
+              <div class="ce-cmd" onclick="send('show critical findings')">critical</div>
+            </div>
+          </div>
+        </div>
+        <div class="chat-input-bar">
+          <div class="cib-row">
+            <div class="cib-prompt">›</div>
+            <input class="cib-input" id="chat-input" type="text" placeholder="type a command or question..." onkeydown="onKey(event)" autocomplete="off" spellcheck="false">
+            <button class="cib-send" id="send-btn" onclick="sendInput()">ENTER</button>
+          </div>
+          <div class="cib-hints">
+            <span class="cib-hint" onclick="hint('/assess')">/assess</span>
+            <span class="cib-hint" onclick="hint('/blast enforce MFA')">/blast enforce mfa</span>
+            <span class="cib-hint" onclick="hint('why is legacy auth a risk?')">legacy auth risk</span>
+            <span class="cib-hint" onclick="hint('explain CIS-1.1.1')">CIS-1.1.1</span>
+            <span class="cib-hint" onclick="hint('users without MFA')">mfa gaps</span>
+            <span class="cib-hint" onclick="hint('how many global admins?')">global admins</span>
+            <span class="cib-hint" onclick="hint('/report exec')">/report exec</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ASSESS -->
+    <div class="page" id="page-assess">
+      <div class="assess-wrap">
+        <div class="page-header">
+          <div class="ph-title">// security assessment</div>
+          <div class="ph-actions">
+            <select class="btn" id="bl-select">
+              <option value="all">all frameworks</option>
+              <option value="microsoft">microsoft bsm</option>
+              <option value="cis">cis m365 v3.1</option>
+              <option value="zero-trust">zero trust ramp</option>
+            </select>
+            <button class="btn primary" onclick="runAssess()">run assessment</button>
+            <button class="btn" onclick="doReport('technical')">export pdf</button>
+          </div>
+        </div>
+        <div id="assess-empty" style="padding:40px;text-align:center;color:var(--text-3);font-size:11px;letter-spacing:.5px">connect your tenant and run an assessment</div>
+        <div id="assess-results" style="display:none">
+          <div class="metrics-row" id="metrics-row"></div>
+          <table class="findings-table" id="findings-table">
+            <thead><tr>
+              <th style="width:100px">ID</th>
+              <th>Finding</th>
+              <th>Framework</th>
+              <th style="width:80px">Severity</th>
+              <th style="width:100px">Drift</th>
+              <th style="width:60px">Effort</th>
+            </tr></thead>
+            <tbody id="findings-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- BLAST -->
+    <div class="page" id="page-blast">
+      <div class="blast-wrap">
+        <div class="blast-input-row">
+          <div class="blast-prompt">blast›</div>
+          <input class="blast-input" id="blast-input" type="text" placeholder="describe a change — e.g. block legacy authentication, enforce MFA, enable PIM" onkeydown="if(event.key==='Enter') runBlast()" autocomplete="off" spellcheck="false">
+          <button class="cib-send" onclick="runBlast()">ANALYZE</button>
+        </div>
+        <div class="blast-hints">
+          <div class="blast-hint" onclick="setBlast('block legacy authentication')">block legacy auth</div>
+          <div class="blast-hint" onclick="setBlast('enforce MFA for all users')">enforce mfa</div>
+          <div class="blast-hint" onclick="setBlast('require compliant device')">require compliant device</div>
+          <div class="blast-hint" onclick="setBlast('enable PIM for Global Admins')">enable pim</div>
+          <div class="blast-hint" onclick="setBlast('block external email forwarding')">block forwarding</div>
+        </div>
+        <div class="blast-output" id="blast-output">
+          <div style="color:var(--text-3);font-size:11px;letter-spacing:.5px">enter a proposed change above to model its impact before applying it</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLUSTERS -->
+    <div class="page" id="page-clusters">
+      <div class="clusters-wrap">
+        <div class="page-header">
+          <div class="ph-title">// user risk segments</div>
+          <div class="ph-actions"><button class="btn" onclick="send('/assess')">run assessment first</button></div>
+        </div>
+        <div id="clusters-empty" style="padding:40px;text-align:center;color:var(--text-3);font-size:11px;letter-spacing:.5px">k-means user segmentation — run an assessment to populate</div>
+        <table class="cluster-table" id="cluster-table" style="display:none">
+          <thead><tr>
+            <th>Cluster</th>
+            <th style="width:70px">Users</th>
+            <th style="width:80px">Risk</th>
+            <th>Characteristics</th>
+            <th>Recommended Action</th>
+          </tr></thead>
+          <tbody id="cluster-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- REPORT -->
+    <div class="page" id="page-report">
+      <div class="report-wrap">
+        <div class="ph-title" style="margin-bottom:4px">// generate report</div>
+        <div style="font-size:11px;color:var(--text-3);margin-bottom:0">run an assessment first, then generate a report</div>
+        <table class="report-table">
+          <thead><tr><th style="width:120px">Type</th><th>Description</th><th style="width:60px">Pages</th><th style="width:90px">Action</th></tr></thead>
+          <tbody>
+            <tr onclick="doReport('exec')">
+              <td>executive</td>
+              <td>Risk score, top findings, recommended actions in plain English.<div class="rt-desc">For CISO, board, or management briefing.</div></td>
+              <td style="color:var(--text-3)">1–2</td>
+              <td><button class="btn primary" onclick="doReport('exec');event.stopPropagation()">generate</button></td>
+            </tr>
+            <tr onclick="doReport('technical')">
+              <td>technical</td>
+              <td>Full findings, blast radius, fix scripts, community citations.<div class="rt-desc">For the admin implementing the fixes.</div></td>
+              <td style="color:var(--text-3)">8–12</td>
+              <td><button class="btn primary" onclick="doReport('technical');event.stopPropagation()">generate</button></td>
+            </tr>
+            <tr onclick="doReport('audit')">
+              <td>audit trail</td>
+              <td>Timestamped record of assessments, findings, and actions.<div class="rt-desc">For compliance evidence and change management.</div></td>
+              <td style="color:var(--text-3)">varies</td>
+              <td><button class="btn primary" onclick="doReport('audit');event.stopPropagation()">generate</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="report-status" id="report-status" style="display:none"></div>
+      </div>
+    </div>
+
+  </main>
+
+  <div class="statusbar">
+    <div class="sb-seg bright" id="sb-tenant">not connected</div>
+    <div class="sb-div"></div>
+    <div class="sb-seg" id="sb-score-seg">no assessment</div>
+    <div class="sb-div"></div>
+    <div class="sb-seg" id="sb-model">ollama · gemma4</div>
+    <div class="sb-seg right">
+      <kbd>ctrl+k</kbd> focus &nbsp;<kbd>ctrl+l</kbd> clear &nbsp;<kbd>enter</kbd> send
+    </div>
+  </div>
+
+</div>
+<script>
+const API='http://localhost:8001/api';
+let _assessment=null;
+
+function nav(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tb-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.tb-tab').forEach(t=>{if(t.textContent.trim()===name)t.classList.add('active');});
+}
+
+function toggleTheme(){
+  const html=document.documentElement,dark=html.getAttribute('data-theme')==='dark';
+  html.setAttribute('data-theme',dark?'light':'dark');
+  document.getElementById('theme-btn').textContent=dark?'dark':'light';
+  localStorage.setItem('tc-theme',dark?'light':'dark');
+}
+(function(){
+  const t=localStorage.getItem('tc-theme')||'dark';
+  document.documentElement.setAttribute('data-theme',t);
+  document.addEventListener('DOMContentLoaded',()=>{
+    const b=document.getElementById('theme-btn');
+    if(b)b.textContent=t==='dark'?'light':'dark';
+  });
+})();
+
+async function handleAuth(){
+  const btn=document.getElementById('auth-btn');
+  try{
+    const r=await fetch(`${API}/auth/status`);
+    const d=await r.json();
+    if(d.authenticated){setConn(d.account,d.tenant_id);return;}
+    btn.textContent='opening browser...';
+    const res=await fetch(`${API}/auth/login`,{method:'POST'});
+    const data=await res.json();
+    if(data.status==='error'){
+      btn.textContent='connect tenant';
+      appendLine('error','auth error: '+data.message);
+      return;
+    }
+    btn.textContent='waiting for login...';
+    pollAuth();
+  }catch(e){
+    btn.textContent='connect tenant';
+    appendLine('error','cannot reach server. run: tenantchat serve');
+  }
+}
+function pollAuth(){
+  fetch(`${API}/auth/poll`).then(r=>r.json()).then(d=>{
+    if(d.authenticated){
+      setConn(d.account,d.tenant_id);
+      appendLine('system','authenticated as '+d.account+' · tenant: '+d.tenant_id);
+    } else if(d.error){
+      document.getElementById('auth-btn').textContent='connect tenant';
+      appendLine('error','auth failed: '+d.error);
+    } else {
+      setTimeout(pollAuth,1500);
+    }
+  }).catch(()=>setTimeout(pollAuth,2000));
+}
+function setConn(acct, tid) {
+  const btn = document.getElementById('auth-btn');
+  btn.textContent = acct || 'connected';
+  btn.classList.add('connected');
+  btn.title = 'Click to disconnect';
+  btn.onclick = handleLogout;
+  document.getElementById('sb-tenant').textContent = tid || acct;
+}
+
+async function handleLogout() {
+  try {
+    await fetch(`${API}/auth/logout`, { method: 'POST' });
+    const btn = document.getElementById('auth-btn');
+    btn.textContent = 'connect tenant';
+    btn.classList.remove('connected');
+    btn.onclick = handleAuth;
+    document.getElementById('sb-tenant').textContent = 'not connected';
+    appendLine('system', 'disconnected from tenant');
+  } catch(e) {
+    appendLine('error', 'logout failed');
+  }
+}
+
+function onKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendInput();}}
+function sendInput(){const el=document.getElementById('chat-input');const msg=el.value.trim();if(!msg)return;el.value='';send(msg);}
+function cmd(c){nav('chat');document.getElementById('chat-input').value=c;sendInput();}
+function ask(q){nav('chat');send('tell me about my tenant\'s '+q);}
+function hint(h){document.getElementById('chat-input').value=h;document.getElementById('chat-input').focus();}
+
+async function send(message){
+  if(!message)return;
+  const empty=document.getElementById('chat-empty');if(empty)empty.style.display='none';
+  appendLine('user',message);
+  const btn=document.getElementById('send-btn');if(btn)btn.disabled=true;
+  const tid=appendThinking();
+  if(message.trim().startsWith('/assess')){removeEl(tid);if(btn)btn.disabled=false;const parts=message.split(' ');const bi=parts.indexOf('--baseline');const bl=bi>=0?parts[bi+1]:'all';await assessFromChat(bl);return;}
+  if(message.trim().startsWith('/blast')){const ch=message.replace('/blast','').trim();removeEl(tid);if(btn)btn.disabled=false;await blastFromChat(ch);return;}
+  if(message.trim().startsWith('/report')){const tp=message.split(' ')[1]||'technical';removeEl(tid);if(btn)btn.disabled=false;await doReport(tp);return;}
+  if(message.trim().startsWith('/history')){removeEl(tid);if(btn)btn.disabled=false;await showHistory();return;}
+  try{
+    const r=await fetch(`${API}/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message})});
+    const d=await r.json();removeEl(tid);appendLine('agent',d.response);
+  }catch(e){removeEl(tid);appendLine('error','error: cannot reach tenant.chat server. run: tenantchat serve');}
+  finally{if(btn)btn.disabled=false;}
+}
+
+function appendLine(role,content){
+  const out=document.getElementById('chat-output');
+  const div=document.createElement('div');
+  div.className=`t-line ${role}`;
+  const time=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+  const lbl=role==='user'?'you':role==='agent'?'tc':role==='system'?'sys':'err';
+  const lc=role==='agent'?'var(--accent)':role==='error'?'var(--red)':role==='system'?'var(--green)':'var(--text-3)';
+  div.innerHTML=`<div class="t-prompt"><span class="p-label" style="color:${lc}">${lbl}</span><span class="p-time">${time}</span></div><div class="t-content ${role==='user'?'muted':''}">${fmt(content)}</div>`;
+  out.appendChild(div);out.scrollTop=out.scrollHeight;return div;
+}
+
+function appendThinking(){
+  const out=document.getElementById('chat-output');
+  const div=document.createElement('div');const id='tk'+Date.now();div.id=id;
+  div.className='t-line agent';
+  div.innerHTML=`<div class="t-prompt"><span class="p-label" style="color:var(--accent)">tc</span></div><div class="t-content"><div class="thinking"><span></span><span></span><span></span></div></div>`;
+  out.appendChild(div);out.scrollTop=out.scrollHeight;return id;
+}
+function removeEl(id){const el=document.getElementById(id);if(el)el.remove();}
+function fmt(t){return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/`([^`\n]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>');}
+
+async function runAssess(){
+  const bl=document.getElementById('bl-select').value;
+  const btn=document.querySelector('.btn.primary');btn.textContent='running...';btn.disabled=true;
+  try{const r=await fetch(`${API}/assess`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({baseline:bl})});const d=await r.json();_assessment=d;renderAssess(d);setScore(d.score,d);}
+  catch{alert('Assessment failed. Is tenantchat running?');}
+  finally{btn.textContent='run assessment';btn.disabled=false;}
+}
+
+async function assessFromChat(bl){
+  appendLine('system',`running assessment against ${bl} frameworks...`);
+  try{
+    const r=await fetch(`${API}/assess`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({baseline:bl})});
+    const d=await r.json();_assessment=d;setScore(d.score,d);
+    const crits=d.findings.filter(f=>f.status==='fail'&&f.severity==='critical');
+    const highs=d.findings.filter(f=>f.status==='fail'&&f.severity==='high');
+    let out=`**assessment complete** — ${d.tenant}\nscore: **${d.score}/100** · critical: **${d.critical}** · high: **${d.high}** · passing: **${d.pass}/${d.total}**\n\n`;
+    if(crits.length){out+=`**critical findings:**\n`;crits.forEach(f=>out+=`  \`${f.control_id}\` ${f.title}${f.delta?' — '+f.delta:''}\n`);}
+    if(highs.length){out+=`\n**high findings:**\n`;highs.slice(0,3).forEach(f=>out+=`  \`${f.control_id}\` ${f.title}\n`);}
+    out+=`\nask me about any finding or use \`/blast <change>\` to model impact`;
+    appendLine('agent',out);renderAssess(d);
+  }catch{appendLine('error','assessment failed — make sure you are authenticated: tenantchat auth login');}
+}
+
+function renderAssess(d){
+  document.getElementById('assess-empty').style.display='none';
+  document.getElementById('assess-results').style.display='block';
+  const sc=d.score<50?'var(--red)':d.score<75?'var(--yellow)':'var(--green)';
+  document.getElementById('metrics-row').innerHTML=`
+    <div class="metric"><div class="m-val" style="color:${sc}">${d.score}</div><div class="m-label">score /100</div></div>
+    <div class="metric"><div class="m-val" style="color:var(--red)">${d.critical}</div><div class="m-label">critical</div></div>
+    <div class="metric"><div class="m-val" style="color:var(--yellow)">${d.high}</div><div class="m-label">high</div></div>
+    <div class="metric"><div class="m-val" style="color:var(--accent)">${d.medium||0}</div><div class="m-label">medium</div></div>
+    <div class="metric"><div class="m-val" style="color:var(--green)">${d.pass}/${d.total}</div><div class="m-label">passing</div></div>`;
+  const tbody=document.getElementById('findings-body');tbody.innerHTML='';
+  ['critical','high','medium','low'].forEach(sev=>{
+    const rows=d.findings.filter(f=>f.status==='fail'&&f.severity===sev);if(!rows.length)return;
+    const hdr=document.createElement('tr');hdr.innerHTML=`<td colspan="6">${sev} (${rows.length})</td>`;hdr.className='section-row';tbody.appendChild(hdr);
+    rows.forEach(f=>{
+      const drift=Math.round((f.drift_score||0)*100);const dc=drift>70?'var(--green)':drift>40?'var(--yellow)':'var(--red)';
+      const tr=document.createElement('tr');
+      tr.onclick=()=>{nav('chat');send(`explain finding ${f.control_id} — ${f.title}. what is wrong and how do I fix it safely?`);};
+      tr.innerHTML=`<td class="td-id">${f.control_id}</td><td><div class="td-title">${f.title}</div>${f.delta?`<div class="td-delta">${f.delta}</div>`:''}</td><td style="font-size:10px;color:var(--text-3)">${f.framework}</td><td><span class="tag ${sev}">${sev}</span></td><td><div class="drift-col"><div class="drift-bar"><div class="drift-fill" style="width:${drift}%;background:${dc}"></div></div><span class="drift-pct">${drift}%</span></div></td><td style="font-size:10px;color:var(--text-3)">${f.effort}</td>`;
+      tbody.appendChild(tr);
+    });
+  });
+  const passing=d.findings.filter(f=>f.status==='pass');
+  if(passing.length){const hdr=document.createElement('tr');hdr.innerHTML=`<td colspan="6">passing (${passing.length})</td>`;hdr.className='section-row';tbody.appendChild(hdr);passing.forEach(f=>{const tr=document.createElement('tr');tr.innerHTML=`<td class="td-id">${f.control_id}</td><td><div class="td-title">${f.title}</div></td><td style="font-size:10px;color:var(--text-3)">${f.framework}</td><td><span class="tag pass">pass</span></td><td><div class="drift-col"><div class="drift-bar"><div class="drift-fill" style="width:100%;background:var(--green)"></div></div><span class="drift-pct">100%</span></div></td><td style="font-size:10px;color:var(--text-3)">${f.effort}</td>`;tbody.appendChild(tr);});}
+}
+
+function setScore(score,d){
+  document.getElementById('sb-score-seg').textContent=`score: ${score}/100 · ${d.critical} critical`;
+  const w=document.getElementById('sb-score');w.style.display='block';
+  const n=document.getElementById('ss-num');const f=document.getElementById('ss-fill');
+  n.textContent=score;n.style.color=score<50?'var(--red)':score<75?'var(--yellow)':'var(--green)';
+  f.style.width=score+'%';f.style.background=score<50?'var(--red)':score<75?'var(--yellow)':'var(--green)';
+}
+
+function setBlast(t){document.getElementById('blast-input').value=t;document.getElementById('blast-input').focus();}
+async function runBlast(){
+  const change=document.getElementById('blast-input').value.trim();if(!change)return;
+  const out=document.getElementById('blast-output');out.innerHTML='<div style="color:var(--text-3);font-size:11px">analyzing...</div>';
+  try{const r=await fetch(`${API}/blast?change=${encodeURIComponent(change)}`);const d=await r.json();renderBlast(d,out);}
+  catch{out.innerHTML='<div style="color:var(--red);font-size:11px">analysis failed</div>';}
+}
+async function blastFromChat(change){
+  if(!change){appendLine('agent','usage: /blast <change description>');return;}
+  appendLine('system',`analyzing blast radius: ${change}`);
+  try{
+    const r=await fetch(`${API}/blast?change=${encodeURIComponent(change)}`);const d=await r.json();
+    let out=`**blast radius — ${d.change}**\nrisk level: **${(d.risk_level||'unknown').toUpperCase()}**\n\n`;
+    const ts=(d.affected_objects||[]).filter(o=>o.type==='tenant_specific');
+    const gn=(d.affected_objects||[]).filter(o=>o.type==='generic');
+    if(ts.length){out+=`**your tenant:**\n`;ts.forEach(o=>out+=`  !! ${o.description}${o.count?` (${o.count})`:''}\n`);out+='\n';}
+    if(gn.length){out+=`**known breakages:**\n`;gn.slice(0,4).forEach(o=>out+=`  -- ${o.description}\n`);out+='\n';}
+    if(d.sequence?.length){out+=`**recommended sequence:**\n`;d.sequence.slice(0,4).forEach(s=>out+=`  ${s}\n`);}
+    appendLine('agent',out);
+  }catch{appendLine('error','blast analysis failed');}
+}
+function renderBlast(d,container){
+  const ts=(d.affected_objects||[]).filter(o=>o.type==='tenant_specific');
+  const gn=(d.affected_objects||[]).filter(o=>o.type==='generic');
+  const rl=d.risk_level||'unknown';
+  let html=`<div class="blast-result"><div class="br-header"><div class="br-change">${d.change}</div><span class="br-risk ${rl}">${rl.toUpperCase()} RISK</span></div>`;
+  if(ts.length){html+=`<div class="br-section"><div class="br-section-title">your tenant — specific impact</div>`;ts.forEach(o=>html+=`<div class="br-item specific">${o.description}${o.count?` — ${o.count} objects`:''}</div>`);html+=`</div>`;}
+  if(gn.length){html+=`<div class="br-section"><div class="br-section-title">known breakages — community</div>`;gn.forEach(o=>html+=`<div class="br-item">${o.description}</div>`);html+=`</div>`;}
+  if(d.fix_first?.length){html+=`<div class="br-section"><div class="br-section-title">fix these first</div>`;d.fix_first.forEach(f=>html+=`<div class="br-item specific">${f}</div>`);html+=`</div>`;}
+  if(d.sequence?.length){html+=`<div class="br-section"><div class="br-section-title">recommended sequence</div>`;d.sequence.forEach((s,i)=>html+=`<div class="br-seq"><div class="br-seq-n">${i+1}</div><div>${s.replace(/^\d+\.\s*/,'')}</div></div>`);html+=`</div>`;}
+  html+=`</div>`;container.innerHTML=html;
+}
+
+async function doReport(type){
+  const status=document.getElementById('report-status');
+  if(status){status.style.display='block';status.textContent=`generating ${type} report...`;}
+  try{
+    const r=await fetch(`${API}/report?report_type=${type}`,{method:'POST'});const d=await r.json();
+    if(status)status.textContent=`report saved: ${d.path}`;
+    appendLine('system',`report generated: ${d.path}`);nav('chat');
+  }catch{if(status)status.textContent='report failed — run an assessment first';appendLine('error','report generation failed. run /assess first');nav('chat');}
+}
+
+async function showHistory(){
+  try{
+    const r=await fetch(`${API}/history`);const d=await r.json();
+    if(!d.history?.length){appendLine('agent','no assessment history. run /assess first');return;}
+    let out=`**assessment history**\n`;
+    d.history.slice(-5).reverse().forEach(h=>out+=`  ${h.assessed_at.slice(0,10)} · score: **${h.score}** · critical: ${h.critical} · high: ${h.high}\n`);
+    if(d.trend)out+=`\n${d.trend}`;appendLine('agent',out);
+  }catch{appendLine('error','could not load history');}
+}
+
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();nav('chat');document.getElementById('chat-input').focus();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='l'){e.preventDefault();const out=document.getElementById('chat-output');out.innerHTML='<div class="chat-empty" id="chat-empty"><div class="ce-line" style="color:var(--text-3);font-size:11px">screen cleared</div></div>';}
+});
+</script>
+</body>
+</html>
