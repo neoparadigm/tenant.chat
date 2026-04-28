@@ -11,3 +11,5 @@ build/
 .DS_Store
 tenantchat-*.pdf
 tenantchat-*.html
+*.pdf
+*.html
