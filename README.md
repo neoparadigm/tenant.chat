@@ -15,8 +15,8 @@ All on your own hardware. Nothing leaves your machine.
 ## What it does
 
 - Assesses your M365 tenant against Microsoft BSM, CIS, Zero Trust RaMP
-- Detects configuration drift — not just pass/fail, exact deltas
-- Models blast radius before any change — your specific affected objects
+- Detects configuration drift - not just pass/fail, exact deltas
+- Models blast radius before any change - your specific affected objects
 - Segments users into actionable risk clusters via K-means
 - Explains every finding in plain English with community context
 - Generates board-ready PDF reports
