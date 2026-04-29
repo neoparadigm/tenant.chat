@@ -55,7 +55,49 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .sb-item:hover { color: #fff; background: rgba(59,158,222,0.12); opacity: 1; }
 .sb-item.active { color: #fff; border-left-color: var(--accent); background: rgba(59,158,222,0.18); opacity: 1; font-weight: 500; }
 .sb-item .si { width: 14px; font-size: 10px; color: inherit; opacity: .6; flex-shrink: 0; text-align: center; }
-.sb-sep { height: 1px; background: var(--border); margin: 8px 0; }
+.sb-sep { height: 1px; background: var(--border); margin: 4px 0; }
+.sb-label { padding: 6px 12px 4px; font-size: 10px; letter-spacing: 1.2px; text-transform: lowercase; color: var(--text-3); font-weight: 500; }
+.sb-cat { cursor: pointer; display: flex; align-items: center; gap: 6px; user-select: none; }
+.sb-cat:hover { color: var(--text-2); }
+.sb-arrow { font-size: 9px; opacity: .6; transition: transform .15s; display: inline-block; }
+.sb-cat.open .sb-arrow { transform: rotate(90deg); }
+.sb-children { overflow: hidden; max-height: 0; transition: max-height .2s ease; }
+.sb-children.open { max-height: 400px; }
+.sb-item { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 20px; font-size: 11px; color: var(--text-3); cursor: pointer; transition: color .1s, background .1s; letter-spacing: .3px; }
+.sb-item:hover { color: var(--text); background: rgba(59,158,222,0.07); }
+.sb-item.active { color: var(--accent); font-weight: 500; }
+.sb-item .si { width: 12px; font-size: 10px; flex-shrink: 0; text-align: center; }
+/* Terminal colour palette — dark mode optimised */
+.c-red   { color: #ff5f57 !important; }  /* terminal red — errors */
+.c-amber { color: #ffbd2e !important; }  /* terminal yellow — warnings */
+.c-blue  { color: #bd93f9 !important; }  /* terminal purple — actions */
+.c-green { color: #50fa7b !important; }  /* terminal green — info/pass */
+.c-dim   { color: #6272a4 !important; }  /* terminal comment — muted */
+
+/* Sidebar text — bright white in dark mode */
+.sb-item { color: #cdd6f4 !important; }
+.sb-item:hover { color: #ffffff !important; background: rgba(189,147,249,0.08) !important; }
+.sb-item.active { color: #bd93f9 !important; font-weight: 600 !important; }
+.sb-label { color: #6272a4 !important; }
+.sb-cat:hover { color: #cdd6f4 !important; }
+
+/* Commands use purple arrow */
+.sb-group:first-child .sb-item .si { color: #bd93f9 !important; }
+
+/* Light mode overrides — keep readable */
+[data-theme="light"] .sb-item { color: #383a42 !important; }
+[data-theme="light"] .sb-item:hover { color: #000 !important; background: rgba(0,101,184,0.06) !important; }
+[data-theme="light"] .sb-item.active { color: #0065b8 !important; }
+[data-theme="light"] .sb-label { color: #9da5b4 !important; }
+[data-theme="light"] .c-red   { color: #e45649 !important; }
+[data-theme="light"] .c-amber { color: #c18401 !important; }
+[data-theme="light"] .c-blue  { color: #7c3aed !important; }
+[data-theme="light"] .c-green { color: #50a14f !important; }
+[data-theme="light"] .c-dim   { color: #a0a1a7 !important; }
+.sb-label { padding: 0 12px 6px; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; }
+.sb-item .si { width: 14px; font-size: 11px; flex-shrink: 0; text-align: center; transition: transform .15s; }
+.sb-item:hover .si { transform: translateX(2px); }
+.sb-group { padding: 10px 0 4px; }
 .sb-score { margin: auto 0 0; padding: 12px; border-top: 1px solid var(--border); display: none; }
 .ss-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 4px; }
 .ss-num { font-size: 28px; font-weight: 700; line-height: 1; color: var(--text); }
@@ -419,30 +461,74 @@ select.btn { appearance: none; cursor: pointer; }
   </header>
 
   <aside class="sidebar">
+
+    <!-- COMMANDS -->
     <div class="sb-group">
-      <div class="sb-label">Commands</div>
+      <div class="sb-label">commands</div>
       <div class="sb-item active" onclick="cmd('/assess')"><span class="si">&gt;</span>/assess</div>
       <div class="sb-item" onclick="cmd('/blast block legacy auth')"><span class="si">&gt;</span>/blast</div>
-      <div class="sb-item" onclick="cmd('/report')"><span class="si">&gt;</span>/report</div>
+      <div class="sb-item" onclick="cmd('/report exec')"><span class="si">&gt;</span>/report</div>
       <div class="sb-item" onclick="cmd('/history')"><span class="si">&gt;</span>/history</div>
     </div>
     <div class="sb-sep"></div>
+
+    <!-- IDENTITY -->
     <div class="sb-group">
-      <div class="sb-label">Checks</div>
-      <div class="sb-item" onclick="ask('legacy authentication status')"><span class="si">·</span>legacy auth</div>
-      <div class="sb-item" onclick="ask('MFA registration coverage')"><span class="si">·</span>mfa coverage</div>
-      <div class="sb-item" onclick="ask('Global Admin count and PIM')"><span class="si">·</span>global admins</div>
-      <div class="sb-item" onclick="ask('device compliance posture')"><span class="si">·</span>device compliance</div>
-      <div class="sb-item" onclick="ask('Conditional Access policies')"><span class="si">·</span>ca policies</div>
-      <div class="sb-item" onclick="ask('Secure Score breakdown')"><span class="si">·</span>secure score</div>
+      <div class="sb-label sb-cat" onclick="toggleSb(this)"><span class="sb-arrow">▸</span> identity</div>
+      <div class="sb-children">
+        <div class="sb-item" onclick="ask('legacy authentication status')"><span class="si c-red">✗</span>legacy auth</div>
+        <div class="sb-item" onclick="ask('MFA coverage and unregistered users')"><span class="si c-red">✗</span>mfa coverage</div>
+        <div class="sb-item" onclick="ask('Global Admin count and PIM status')"><span class="si c-red">✗</span>global admins</div>
+        <div class="sb-item" onclick="ask('Conditional Access policy gaps')"><span class="si c-red">✗</span>ca policies</div>
+        <div class="sb-item" onclick="ask('PIM eligible role assignments')"><span class="si c-amber">!</span>pim</div>
+        <div class="sb-item" onclick="ask('service principal secrets and permissions')"><span class="si c-amber">!</span>service principals</div>
+      </div>
     </div>
     <div class="sb-sep"></div>
+
+    <!-- DEVICES -->
     <div class="sb-group">
-      <div class="sb-label">Baselines</div>
-      <div class="sb-item" onclick="cmd('/assess --baseline microsoft')"><span class="si">·</span>microsoft bsm</div>
-      <div class="sb-item" onclick="cmd('/assess --baseline cis')"><span class="si">·</span>cis m365 v3.1</div>
-      <div class="sb-item" onclick="cmd('/assess --baseline zero-trust')"><span class="si">·</span>zero trust ramp</div>
+      <div class="sb-label sb-cat" onclick="toggleSb(this)"><span class="sb-arrow">▸</span> devices</div>
+      <div class="sb-children">
+        <div class="sb-item" onclick="ask('Intune compliance policies and non-compliant devices')"><span class="si c-red">✗</span>compliance</div>
+        <div class="sb-item" onclick="ask('BitLocker encryption across managed devices')"><span class="si c-red">✗</span>bitlocker</div>
+        <div class="sb-item" onclick="ask('LAPS local admin password solution')"><span class="si c-red">✗</span>laps</div>
+        <div class="sb-item" onclick="ask('Multi Admin Approval device wipe CISA advisory')"><span class="si c-red">✗</span>multi admin approval</div>
+        <div class="sb-item" onclick="ask('MDE onboarding and tamper protection')"><span class="si c-amber">!</span>defender</div>
+        <div class="sb-item" onclick="ask('stale devices not synced 30 days')"><span class="si c-dim">·</span>stale devices</div>
+      </div>
     </div>
+    <div class="sb-sep"></div>
+
+    <!-- FRAMEWORKS -->
+    <div class="sb-group">
+      <div class="sb-label sb-cat" onclick="toggleSb(this)"><span class="sb-arrow">▸</span> frameworks</div>
+      <div class="sb-children">
+        <div class="sb-item" onclick="cmd('/assess')"><span class="si c-blue">▸</span>all · 100 controls</div>
+        <div class="sb-item" onclick="cmd('/assess --baseline entra')"><span class="si c-dim">·</span>entra identity · 27</div>
+        <div class="sb-item" onclick="cmd('/assess --baseline intune')"><span class="si c-dim">·</span>intune + cisa · 23</div>
+        <div class="sb-item" onclick="cmd('/assess --baseline cis')"><span class="si c-dim">·</span>cis m365 v3.1 · 15</div>
+        <div class="sb-item" onclick="cmd('/assess --baseline bsm')"><span class="si c-dim">·</span>bsm · 8</div>
+        <div class="sb-item" onclick="cmd('/assess --baseline zero-trust')"><span class="si c-dim">·</span>zero trust ramp · 5</div>
+        <div class="sb-item" onclick="cmd('/assess --baseline exchange')"><span class="si c-dim">·</span>exchange · 7</div>
+        <div class="sb-item" onclick="cmd('/assess --baseline azure')"><span class="si c-dim">·</span>azure · 9</div>
+        <div class="sb-item" onclick="cmd('/assess --baseline nist')"><span class="si c-dim">·</span>nist 800-53 · 6</div>
+      </div>
+    </div>
+    <div class="sb-sep"></div>
+
+    <!-- CISA -->
+    <div class="sb-group">
+      <div class="sb-label sb-cat c-red" onclick="toggleSb(this)"><span class="sb-arrow">▸</span> ⚠ cisa advisory</div>
+      <div class="sb-children">
+        <div class="sb-item" onclick="ask('CISA Stryker advisory Intune compliance status')"><span class="si c-red">!</span>stryker · mar 2026</div>
+        <div class="sb-item" onclick="ask('multi admin approval device wipe')"><span class="si c-red">!</span>multi admin approval</div>
+        <div class="sb-item" onclick="ask('phishing resistant MFA FIDO2 for admins')"><span class="si c-red">!</span>phish-resistant mfa</div>
+        <div class="sb-item" onclick="ask('PIM for Intune roles least privilege')"><span class="si c-red">!</span>pim · intune</div>
+      </div>
+    </div>
+
+    <!-- SCORE -->
     <div class="sb-score" id="sb-score">
       <div class="ss-row"><div class="ss-num" id="ss-num">--</div><div class="ss-label">/100</div></div>
       <div class="ss-bar"><div class="ss-fill" id="ss-fill" style="width:0%"></div></div>
@@ -694,6 +780,20 @@ async function handleLogout() {
 
 function onKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendInput();}}
 function sendInput(){const el=document.getElementById('chat-input');const msg=el.value.trim();if(!msg)return;el.value='';send(msg);}
+function toggleSb(el) {
+  el.classList.toggle('open');
+  const ch = el.parentElement.querySelector('.sb-children');
+  if (ch) ch.classList.toggle('open');
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.sb-cat').forEach((cat, i) => {
+    if (i < 2) {
+      cat.classList.add('open');
+      const ch = cat.parentElement.querySelector('.sb-children');
+      if (ch) ch.classList.add('open');
+    }
+  });
+});
 function cmd(c){nav('chat');document.getElementById('chat-input').value=c;sendInput();}
 function ask(q){nav('chat');send('tell me about my tenant\'s '+q);}
 function hint(h){document.getElementById('chat-input').value=h;document.getElementById('chat-input').focus();}

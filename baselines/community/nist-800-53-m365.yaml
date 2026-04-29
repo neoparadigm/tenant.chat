@@ -1,18 +1,22 @@
 framework: NIST 800-53 M365 Mapping
 version: "Rev5"
 description: >
-  NIST SP 800-53 Rev 5 controls mapped to Microsoft 365
-  configuration checks. Focused on identity, access control,
-  audit, and system integrity controls.
+  NIST SP 800-53 Rev 5 controls mapped to Microsoft 365 configuration.
+  Covers identity access control audit configuration management
+  system integrity and data protection control families.
+  Maps NIST control identifiers to specific M365 configuration checks.
 
 controls:
 
+  # ── ACCESS CONTROL (AC) ──────────────────────────────────────────────────
+
   - control_id: NIST-AC-02
-    title: "Account management — privileged accounts reviewed"
+    title: "AC-2 Account Management — privileged accounts reviewed"
     description: >
       NIST AC-2 requires formal account management including
-      regular review of privileged accounts. Global Admins
-      and other privileged roles must be reviewed quarterly.
+      authorisation review and periodic review of privileged accounts.
+      Global Administrators and other high-privilege roles must be
+      reviewed at least quarterly and excess accounts removed.
     check_type: threshold
     severity: high
     effort: medium
@@ -22,16 +26,61 @@ controls:
     blast_radius:
       - "Excess privileged accounts must be reviewed with account owners"
       - "PIM eligible assignments recommended as replacement"
+      - "Automated account review workflow must be configured"
+    community_ref: "identity/pim-roles"
+    references:
+      - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
+
+  - control_id: NIST-AC-03
+    title: "AC-3 Access Enforcement — Conditional Access enforced"
+    description: >
+      NIST AC-3 requires enforcement of approved authorisations
+      for logical access to information and systems. Conditional
+      Access policies must enforce MFA device compliance and
+      risk-based access controls for all cloud applications.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      conditions.applications.includeApplications: [All]
+    blast_radius:
+      - "Users without MFA will be blocked when CA MFA policy enforced"
+      - "Service accounts need app-based authentication or exclusion"
+      - "Break glass accounts must be excluded from CA policies"
+    community_ref: "identity/conditional-access"
+    references:
+      - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
+
+  - control_id: NIST-AC-06
+    title: "AC-6 Least Privilege — admin roles use minimum permissions"
+    description: >
+      NIST AC-6 requires least privilege access — users are granted
+      only the permissions required for their job function. Global
+      Administrator must not be used for tasks that require lesser
+      roles. Dedicated scoped roles must be used for each function.
+    check_type: threshold
+    severity: critical
+    effort: medium
+    graph_endpoint: /admins
+    expected:
+      max: 2
+    blast_radius:
+      - "Admins using GA for specific tasks need scoped role assignment"
+      - "PIM must be configured before removing permanent GA assignments"
+      - "Automation using GA service accounts needs dedicated service principals"
     community_ref: "identity/pim-roles"
     references:
       - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
 
   - control_id: NIST-AC-17
-    title: "Remote access — MFA required for all remote connections"
+    title: "AC-17 Remote Access — MFA required for all remote connections"
     description: >
-      NIST AC-17 requires protection of remote access sessions.
-      All remote access to M365 services must require MFA
-      via Conditional Access policy.
+      NIST AC-17 requires protection of remote access sessions with
+      appropriate authentication. All remote access to M365 services
+      must require MFA via Conditional Access. This is the most
+      direct NIST mapping to the Stryker attack vector.
     check_type: coverage
     severity: critical
     effort: low
@@ -42,74 +91,175 @@ controls:
       min_percent: 100
     blast_radius:
       - "Users without MFA will be blocked from remote access"
-      - "Service accounts need app-based authentication"
+      - "Service accounts cannot complete interactive MFA"
+      - "Break glass accounts must be excluded"
     community_ref: "identity/mfa-registration"
     references:
       - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
 
+  # ── AUDIT AND ACCOUNTABILITY (AU) ────────────────────────────────────────
+
   - control_id: NIST-AU-02
-    title: "Audit events — unified audit log enabled"
+    title: "AU-2 Event Logging — unified audit log enabled"
     description: >
-      NIST AU-2 requires audit logging of security-relevant
-      events. The Microsoft 365 unified audit log must be
-      enabled and capturing events across all workloads.
+      NIST AU-2 requires identification of the types of events
+      that the system is capable of logging. The Microsoft 365
+      unified audit log must be enabled and capturing events
+      across Exchange SharePoint Teams OneDrive and Entra ID.
     check_type: presence
     severity: high
     effort: low
     graph_endpoint: /security/auditLog/queries
     expected:
-      _note: "Unified audit log must be enabled"
+      _note: "Unified audit log must be enabled and accessible"
     blast_radius:
       - "No blast radius — enabling audit log is non-disruptive"
     community_ref: "compliance/audit-log"
     references:
       - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
 
+  - control_id: NIST-AU-09
+    title: "AU-9 Protection of Audit Information — logs protected"
+    description: >
+      NIST AU-09 requires protecting audit information and tools
+      from unauthorised access modification and deletion. Audit
+      logs must be retained in a separate system that standard
+      users and even compromised admins cannot modify or delete.
+    check_type: presence
+    severity: high
+    effort: medium
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Audit logs must be exported to Log Analytics or immutable storage"
+    blast_radius:
+      - "No blast radius — adding log export is non-disruptive"
+      - "Log Analytics workspace costs increase with data volume"
+    community_ref: "compliance/audit-log"
+    references:
+      - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
+
+  - control_id: NIST-AU-11
+    title: "AU-11 Audit Record Retention — logs retained 90 days minimum"
+    description: >
+      NIST AU-11 requires retention of audit records for a defined
+      period. M365 audit logs must be retained for at least 90 days
+      for incident investigation. E5 provides 1-year retention.
+      Longer retention requires Log Analytics or third-party SIEM.
+    check_type: presence
+    severity: medium
+    effort: low
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Audit log retention must be configured for minimum 90 days"
+    blast_radius:
+      - "No blast radius — extending retention is non-disruptive"
+      - "Storage costs increase with extended retention period"
+    community_ref: "compliance/audit-log"
+    references:
+      - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
+
+  # ── CONFIGURATION MANAGEMENT (CM) ────────────────────────────────────────
+
   - control_id: NIST-CM-06
-    title: "Configuration settings — security baseline enforced"
+    title: "CM-6 Configuration Settings — security baseline enforced"
     description: >
       NIST CM-6 requires documented and enforced configuration
-      settings. Microsoft security baselines must be deployed
-      via Intune for all managed devices and applications.
+      settings representing the most restrictive mode consistent
+      with operational requirements. Microsoft security baselines
+      must be deployed via Intune for all managed devices.
     check_type: presence
     severity: high
     effort: medium
     graph_endpoint: /deviceManagement/deviceConfigurations
     expected:
-      _note: "Security baseline configuration profiles must exist"
+      _note: "Security baseline configuration profiles must exist in Intune"
     blast_radius:
       - "Baseline settings may override existing device configurations"
       - "Test on pilot group before broad deployment"
+      - "Document all baseline exceptions with business justification"
     community_ref: "intune/device-compliance"
     references:
       - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
 
-  - control_id: NIST-IA-05
-    title: "Authenticator management — password policies enforced"
+  - control_id: NIST-CM-07
+    title: "CM-7 Least Functionality — legacy protocols disabled"
     description: >
-      NIST IA-5 requires authenticator management including
-      password policies. Cloud-only accounts should have
-      passwords set to never expire combined with strong MFA.
-    check_type: value
-    severity: medium
+      NIST CM-7 requires configuring systems to provide only
+      essential capabilities prohibiting or restricting the use
+      of functions ports protocols and services. Legacy authentication
+      protocols must be disabled as they provide no business value
+      and significant security risk.
+    check_type: presence
+    severity: critical
     effort: low
-    graph_endpoint: /domains
+    graph_endpoint: /identity/conditionalAccess/policies
     expected:
-      field: passwordValidityPeriodInDays
-      value: 2147483647
+      state: enabled
+      conditions.clientAppTypes: [exchangeActiveSync, other]
+      grantControls.builtInControls: [block]
     blast_radius:
-      - "Users approaching password expiry will no longer be prompted"
-      - "On-premises synced accounts not affected"
-    community_ref: "identity/password-policy"
+      - "Exchange ActiveSync devices using basic auth will break"
+      - "IMAP POP and EWS basic auth clients will fail"
+      - "Printers using SMTP AUTH scan-to-email will break"
+    community_ref: "identity/legacy-auth"
     references:
       - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
 
+  # ── IDENTIFICATION AND AUTHENTICATION (IA) ───────────────────────────────
+
+  - control_id: NIST-IA-05
+    title: "IA-5 Authenticator Management — MFA enforced"
+    description: >
+      NIST IA-5 requires management of system authenticators
+      including establishing content for initial authenticators
+      and requiring MFA for privileged and non-privileged accounts.
+      Cloud-only accounts must use MFA as the primary control
+      and never expire passwords without MFA.
+    check_type: coverage
+    severity: critical
+    effort: low
+    graph_endpoint: /reports/authenticationMethods/userRegistrationDetails
+    expected:
+      field: isMfaRegistered
+      value: true
+      min_percent: 95
+    blast_radius:
+      - "Users without MFA will be blocked when CA MFA policy enforced"
+      - "Registration campaign needed before CA enforcement"
+    community_ref: "identity/mfa-registration"
+    references:
+      - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
+
+  - control_id: NIST-IA-08
+    title: "IA-8 Identification and Authentication — guest access controlled"
+    description: >
+      NIST IA-8 requires identification and authentication of
+      non-organisational users. Guest and external users must
+      be properly identified authenticated and governed.
+      Guest access must not be unrestricted or unreviewed.
+    check_type: threshold
+    severity: medium
+    effort: low
+    graph_endpoint: /guests
+    expected:
+      max: 0
+    blast_radius:
+      - "Unreviewed guests may lose access when access reviews enforced"
+      - "Business owners must be identified as guest access reviewers"
+    community_ref: "identity/guest-users"
+    references:
+      - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
+
+  # ── SYSTEM AND COMMUNICATIONS PROTECTION (SC) ───────────────────────────
+
   - control_id: NIST-SC-28
-    title: "Protection of information at rest — encryption enforced"
+    title: "SC-28 Protection of Information at Rest — encryption enforced"
     description: >
       NIST SC-28 requires protection of information at rest.
-      All managed devices must have encryption enabled and
-      SharePoint and OneDrive data encryption must be verified.
+      All managed Windows devices must have BitLocker encryption
+      enabled. Data at rest in Exchange SharePoint and OneDrive
+      is encrypted by Microsoft — device-level encryption must
+      be verified for managed endpoints.
     check_type: coverage
     severity: high
     effort: medium
@@ -119,8 +269,55 @@ controls:
       value: true
       min_percent: 95
     blast_radius:
-      - "Devices without TPM may not support required encryption"
-      - "Encryption process requires device restart"
+      - "Devices without TPM 2.0 may not support BitLocker"
+      - "Encryption process temporarily impacts device performance"
+      - "Recovery keys must be escrowed to Entra ID before enforcing"
     community_ref: "intune/bitlocker"
+    references:
+      - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
+
+  # ── SYSTEM AND INFORMATION INTEGRITY (SI) ───────────────────────────────
+
+  - control_id: NIST-SI-03
+    title: "SI-3 Malicious Code Protection — Defender deployed"
+    description: >
+      NIST SI-3 requires malicious code protection mechanisms
+      at system entry and exit points. Microsoft Defender for
+      Endpoint must be deployed to all managed devices with
+      real-time protection enabled and cloud-delivered protection
+      active for zero-day coverage.
+    check_type: coverage
+    severity: critical
+    effort: medium
+    graph_endpoint: /deviceManagement/managedDevices
+    expected:
+      field: managementAgent
+      value: mdm
+      min_percent: 95
+    blast_radius:
+      - "MDE deployment requires device restart on some configurations"
+      - "Third-party AV must be evaluated for compatibility with MDE"
+    community_ref: "defender/mde-onboarding"
+    references:
+      - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
+
+  - control_id: NIST-SI-04
+    title: "SI-4 System Monitoring — security alerts reviewed"
+    description: >
+      NIST SI-4 requires monitoring of systems to detect attacks
+      and indicators of potential attacks. Microsoft Defender
+      security alerts and Entra ID risky user signals must be
+      reviewed promptly. Unactioned alerts indicate either
+      active threats or monitoring blind spots.
+    check_type: threshold
+    severity: high
+    effort: low
+    graph_endpoint: /security/alerts_v2
+    expected:
+      max: 0
+    blast_radius:
+      - "No blast radius — reviewing alerts is non-disruptive"
+      - "Alert triage process must be defined before enabling alerts"
+    community_ref: "defender/alert-management"
     references:
       - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
