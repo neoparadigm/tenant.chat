@@ -1,0 +1,633 @@
+framework: Microsoft Entra Identity Security Baseline
+version: "2024-CISA"
+description: >
+  Comprehensive Microsoft Entra ID and identity security baseline.
+  Incorporates CISA advisory March 2026 (Stryker breach — compromised
+  GA account via AiTM phishing), CIS Microsoft 365 v3.1 identity controls,
+  Microsoft Baseline Security Mode, Zero Trust RaMP identity pillar,
+  and NIST 800-53 identity and access management controls.
+  This baseline directly addresses the identity attack chain used
+  in the Stryker breach and the most common M365 compromise vectors.
+
+controls:
+
+  # ── SECTION 1: LEGACY AUTHENTICATION ────────────────────────────────────
+  # Primary password spray and credential stuffing vector.
+  # Blocking legacy auth is the single highest-value identity control.
+
+  - control_id: ENTRA-LEGACY-01
+    title: "Legacy authentication blocked for all users via CA"
+    description: >
+      A Conditional Access policy must block legacy authentication
+      protocols for all users. Legacy auth does not support MFA
+      and is responsible for over 99% of password spray attacks
+      against M365 tenants. The policy must cover both
+      exchangeActiveSync and other client app types.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      conditions.clientAppTypes: [exchangeActiveSync, other]
+      grantControls.builtInControls: [block]
+    blast_radius:
+      - "Exchange ActiveSync devices using basic auth will break"
+      - "IMAP and POP email clients will lose connectivity"
+      - "Applications using basic auth to Exchange Online will fail"
+      - "Printers using SMTP AUTH scan-to-email will break"
+      - "Older Outlook versions prior to 2013 cannot connect"
+      - "EWS-based applications not yet on Graph API will fail"
+    community_ref: "identity/legacy-auth"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/conditional-access/block-legacy-authentication
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: ENTRA-LEGACY-02
+    title: "Legacy authentication sign-in attempts monitored"
+    description: >
+      Sign-in logs must be monitored for legacy authentication
+      attempts. Even after blocking legacy auth a CA exception group
+      or misconfigured policy may allow legacy auth for some users.
+      Monitoring detects gaps in the block policy.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /security/alerts_v2
+    expected:
+      _note: "Sign-in diagnostic logs must be accessible and retained"
+    blast_radius:
+      - "No blast radius — monitoring is non-disruptive"
+    community_ref: "identity/legacy-auth"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/conditional-access/block-legacy-authentication
+
+  # ── SECTION 2: MULTI-FACTOR AUTHENTICATION ───────────────────────────────
+  # Stryker breach used AiTM to bypass standard MFA.
+  # Phishing-resistant MFA is now mandatory for admin accounts.
+
+  - control_id: ENTRA-MFA-01
+    title: "MFA required for all users via Conditional Access"
+    description: >
+      A Conditional Access policy must require MFA for all users
+      on all cloud applications. Per-user MFA legacy settings are
+      deprecated. CA-based MFA is the only supportable approach
+      that integrates with risk signals and authentication strength.
+    check_type: coverage
+    severity: critical
+    effort: low
+    graph_endpoint: /reports/authenticationMethods/userRegistrationDetails
+    expected:
+      field: isMfaRegistered
+      value: true
+      min_percent: 95
+    blast_radius:
+      - "Users without MFA registered will be blocked immediately"
+      - "Service accounts cannot complete interactive MFA challenges"
+      - "Shared mailboxes with direct sign-in will break"
+      - "Break glass emergency access accounts must be excluded"
+      - "Guest users may be blocked if included in policy scope"
+    community_ref: "identity/mfa-registration"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/authentication/concept-mfa-howitworks
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: ENTRA-MFA-02
+    title: "Phishing-resistant MFA for all administrator accounts"
+    description: >
+      All privileged accounts must use phishing-resistant MFA —
+      FIDO2 security keys, Windows Hello for Business, or
+      certificate-based authentication. The Stryker breach used
+      AiTM phishing to bypass authenticator app MFA. SMS and
+      authenticator app MFA are insufficient for admin accounts.
+    check_type: coverage
+    severity: critical
+    effort: medium
+    graph_endpoint: /reports/authenticationMethods/userRegistrationDetails
+    expected:
+      field: isMfaCapable
+      value: true
+      min_percent: 100
+    blast_radius:
+      - "Admins without phishing-resistant MFA need to register FIDO2 or cert"
+      - "FIDO2 security keys require procurement and physical distribution"
+      - "Certificate-based auth requires PKI infrastructure"
+      - "WHfB requires Entra hybrid join or Entra join"
+    community_ref: "identity/mfa-registration"
+    references:
+      - https://www.cisa.gov/news-events/alerts/2026/03/18/cisa-urges-endpoint-management-system-hardening-after-cyberattack-against-us-organization
+      - https://learn.microsoft.com/en-us/azure/active-directory/authentication/concept-authentication-strengths
+
+  - control_id: ENTRA-MFA-03
+    title: "MFA registration campaign completed — coverage above 95 percent"
+    description: >
+      At least 95% of licensed users must have MFA registered.
+      Unregistered users represent immediate account takeover risk.
+      Users without MFA rely solely on passwords for protection.
+    check_type: coverage
+    severity: critical
+    effort: low
+    graph_endpoint: /reports/authenticationMethods/userRegistrationDetails
+    expected:
+      field: isMfaRegistered
+      value: true
+      min_percent: 95
+    blast_radius:
+      - "Users without MFA will be blocked when CA MFA policy enforced"
+      - "Registration campaign needed before CA enforcement"
+    community_ref: "identity/mfa-registration"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/authentication/howto-mfa-userdevicesettings
+
+  - control_id: ENTRA-MFA-04
+    title: "SSPR configured and enabled for all users"
+    description: >
+      Self-service password reset must be enabled for all users.
+      Without SSPR users call the helpdesk to reset passwords
+      which creates social engineering opportunities and increases
+      the risk of unauthorized password resets via helpdesk.
+    check_type: presence
+    severity: medium
+    effort: low
+    graph_endpoint: /policies/authenticationMethodsPolicy
+    expected:
+      _note: "SSPR must be enabled for all users"
+    blast_radius:
+      - "No blast radius — SSPR is additive"
+      - "Users must register authentication methods for SSPR"
+    community_ref: "identity/sspr"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/authentication/concept-sspr-howitworks
+
+  # ── SECTION 3: CONDITIONAL ACCESS ───────────────────────────────────────
+  # CA policies are the enforcement layer for all identity controls.
+  # Poor CA design is the root cause of most M365 compromises.
+
+  - control_id: ENTRA-CA-01
+    title: "High risk sign-ins blocked by Conditional Access"
+    description: >
+      A CA policy must block or require strong MFA for sign-ins
+      flagged as high risk by Entra ID Protection. High risk
+      sign-ins indicate likely account compromise. Requires
+      Entra ID P2 licence.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      conditions.signInRiskLevels: [high]
+    blast_radius:
+      - "Legitimate users flagged as high risk will be blocked"
+      - "Requires Entra ID P2 licence for risk-based CA"
+      - "Break glass accounts must be excluded"
+      - "Named locations should be configured to reduce false positives"
+    community_ref: "identity/risk-policies"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/identity-protection/howto-identity-protection-configure-risk-policies
+
+  - control_id: ENTRA-CA-02
+    title: "High risk users blocked or required to change password"
+    description: >
+      A CA policy must block access or require password change for
+      users flagged as high risk. User risk indicates compromised
+      credentials in the wild. Requires Entra ID P2.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      conditions.userRiskLevels: [high]
+    blast_radius:
+      - "Users with leaked credentials flagged as high risk will be blocked"
+      - "Requires Entra ID P2 licence"
+      - "Password reset workflow must be tested before enabling"
+    community_ref: "identity/risk-policies"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/identity-protection/howto-identity-protection-configure-risk-policies
+
+  - control_id: ENTRA-CA-03
+    title: "Compliant device required for cloud app access"
+    description: >
+      A CA policy must require compliant Intune-managed devices
+      for access to cloud applications. Prevents unmanaged device
+      access to corporate data. Must be paired with Intune
+      compliance policies.
+    check_type: presence
+    severity: high
+    effort: medium
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      grantControls.builtInControls: [compliantDevice]
+    blast_radius:
+      - "Personal and unmanaged devices will immediately lose access"
+      - "BYOD users will be blocked until enrolled in Intune"
+      - "Guest users need separate policy exclusion"
+      - "Mobile devices need Intune enrolment completed first"
+      - "Printers and shared devices need exclusion or service account"
+    community_ref: "intune/device-compliance"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/conditional-access/howto-conditional-access-policy-compliant-device
+
+  - control_id: ENTRA-CA-04
+    title: "Named locations defined for trusted network ranges"
+    description: >
+      Named locations must be configured for trusted IP ranges
+      and used in CA policies. Without named locations CA policies
+      cannot differentiate corporate network from external access
+      enabling risk-based and location-based controls.
+    check_type: presence
+    severity: medium
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/namedLocations
+    expected:
+      _note: "At least one named location must be configured"
+    blast_radius:
+      - "No blast radius — named locations are additive"
+      - "Used to reduce MFA friction on trusted networks"
+    community_ref: "identity/conditional-access"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/conditional-access/location-condition
+
+  - control_id: ENTRA-CA-05
+    title: "CA policies cover all cloud applications — no gaps"
+    description: >
+      At least one CA policy must target all cloud applications
+      using the All cloud apps selector. Policies targeting
+      specific apps leave ungoverned applications accessible
+      without the required security controls.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      conditions.applications.includeApplications: [All]
+    blast_radius:
+      - "Applications previously ungoverned will require MFA"
+      - "Service accounts accessing apps must be excluded or use workload identity"
+    community_ref: "identity/conditional-access"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/conditional-access/concept-conditional-access-cloud-apps
+
+  - control_id: ENTRA-CA-06
+    title: "Admin portals require stronger authentication strength"
+    description: >
+      A CA policy must require phishing-resistant MFA specifically
+      for Microsoft admin portals — Azure portal, Entra admin center,
+      Microsoft 365 admin center, Intune. Standard MFA is insufficient
+      for admin portal access per CISA advisory.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      conditions.applications.includeApplications: [MicrosoftAdminPortals]
+    blast_radius:
+      - "Admins without phishing-resistant MFA will lose portal access"
+      - "Coordinate with all admins before enabling"
+      - "Break glass accounts must be excluded"
+    community_ref: "identity/conditional-access"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/conditional-access/concept-conditional-access-cloud-apps
+      - https://www.cisa.gov/news-events/alerts/2026/03/18/cisa-urges-endpoint-management-system-hardening-after-cyberattack-against-us-organization
+
+  # ── SECTION 4: PRIVILEGED ACCESS ─────────────────────────────────────────
+  # Stryker breach: compromised GA = 80,000 devices wiped.
+  # Privilege reduction is the primary blast radius control.
+
+  - control_id: ENTRA-PRIV-01
+    title: "No more than 5 permanent Global Administrators"
+    description: >
+      Global Administrator is the highest privilege role in Entra ID.
+      Permanent GA assignments significantly increase attack surface.
+      The Stryker attacker created a new GA account after compromising
+      one admin. Maximum 5 permanent GAs — ideally 2 break glass only.
+    check_type: threshold
+    severity: critical
+    effort: medium
+    graph_endpoint: /admins
+    expected:
+      max: 5
+    blast_radius:
+      - "Excess GAs need roles removed and PIM eligible assignment"
+      - "Break glass accounts must remain as permanent GA"
+      - "Automation using GA service accounts needs dedicated SP"
+      - "PIM must be configured before removing permanent assignments"
+    community_ref: "identity/pim-roles"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/roles/best-practices
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: ENTRA-PRIV-02
+    title: "PIM configured for all privileged roles"
+    description: >
+      Privileged Identity Management must be configured for all
+      privileged Entra ID roles. Permanent privileged assignments
+      are available to attackers 24/7. PIM provides just-in-time
+      access with approval workflow and time-bound activation.
+    check_type: threshold
+    severity: critical
+    effort: medium
+    graph_endpoint: /admins
+    expected:
+      max: 2
+    blast_radius:
+      - "Admins must activate roles before performing privileged tasks"
+      - "Automated scripts using permanent admin accounts will fail"
+      - "Approval workflows must be configured and tested first"
+      - "Activation duration must match operational requirements"
+    community_ref: "identity/pim-roles"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/privileged-identity-management/pim-configure
+      - https://www.cisa.gov/news-events/alerts/2026/03/18/cisa-urges-endpoint-management-system-hardening-after-cyberattack-against-us-organization
+
+  - control_id: ENTRA-PRIV-03
+    title: "Break glass emergency access accounts configured"
+    description: >
+      At least two break glass emergency access accounts must exist
+      excluded from all CA policies and MFA requirements. Without
+      break glass accounts a CA misconfiguration or MFA outage can
+      lock all administrators out of the tenant permanently.
+    check_type: threshold
+    severity: critical
+    effort: low
+    graph_endpoint: /users
+    expected:
+      min: 2
+    blast_radius:
+      - "No blast radius — break glass accounts are additive"
+      - "Accounts must be excluded from all CA and MFA policies"
+      - "Passwords must be stored securely offline and split between custodians"
+      - "Usage must be monitored and alerted immediately"
+    community_ref: "identity/break-glass"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/roles/security-emergency-access
+
+  - control_id: ENTRA-PRIV-04
+    title: "Admin accounts separate from user accounts"
+    description: >
+      Privileged administrators must use separate dedicated admin
+      accounts for administrative tasks. Using a single account
+      for both email and admin tasks means a phishing email can
+      compromise admin credentials directly — the Stryker attack vector.
+    check_type: threshold
+    severity: critical
+    effort: medium
+    graph_endpoint: /admins
+    expected:
+      max: 5
+    blast_radius:
+      - "Admins need new dedicated admin accounts provisioned"
+      - "Admin workflows must be updated to use dedicated accounts"
+      - "MFA must be configured on new admin accounts before transition"
+    community_ref: "identity/pim-roles"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/roles/best-practices
+
+  - control_id: ENTRA-PRIV-05
+    title: "Privileged role assignments reviewed in last 90 days"
+    description: >
+      All privileged role assignments must be reviewed at least
+      every 90 days via Entra ID access reviews. Stale privileged
+      accounts are high-value targets. Former employees or
+      contractors with lingering admin access are a primary risk.
+    check_type: staleness
+    severity: high
+    effort: medium
+    graph_endpoint: /directoryRoles
+    expected:
+      field: lastSyncDateTime
+      threshold_days: 90
+    blast_radius:
+      - "Users with stale privileged access will lose roles after review"
+      - "Access review workflow must be configured before enabling"
+    community_ref: "identity/pim-roles"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/governance/access-reviews-overview
+
+  # ── SECTION 5: APP CONSENT AND SERVICE PRINCIPALS ───────────────────────
+  # OAuth phishing and consent attacks are the fastest-growing
+  # identity attack vector after AiTM phishing.
+
+  - control_id: ENTRA-APP-01
+    title: "User consent to applications restricted"
+    description: >
+      Users must not be allowed to consent to OAuth applications
+      independently. Unrestricted user consent enables OAuth
+      phishing — attackers register malicious apps and trick users
+      into granting access to mail, files, and calendar data.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /policies/authenticationMethodsPolicy
+    expected:
+      _note: "User consent must be disabled or restricted to verified publishers"
+    blast_radius:
+      - "Users cannot consent to new apps without admin approval"
+      - "Admin consent workflow must be configured and communicated"
+      - "Existing consented apps are not affected"
+      - "Productivity apps like Zoom may need pre-approval"
+    community_ref: "identity/app-consent"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/manage-apps/configure-user-consent
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: ENTRA-APP-02
+    title: "Service principal secret expiry within 90 days"
+    description: >
+      Application and service principal credentials must not have
+      expiry dates beyond 90 days from creation. Long-lived credentials
+      increase the window of exposure if compromised. Certificates
+      are preferred over secrets for service principals.
+    check_type: staleness
+    severity: high
+    effort: medium
+    graph_endpoint: /servicePrincipals
+    expected:
+      field: passwordCredentials
+      threshold_days: 90
+    blast_radius:
+      - "Applications using expiring credentials will break when rotated"
+      - "Automated rotation must be in place before shortening expiry"
+      - "Coordinate rotation schedule with application owners"
+    community_ref: "identity/service-principals"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/develop/howto-create-service-principal-portal
+
+  - control_id: ENTRA-APP-03
+    title: "High privilege service principals reviewed"
+    description: >
+      Service principals with Directory.ReadWrite.All or equivalent
+      high privilege Graph API permissions must be reviewed regularly.
+      Over-privileged service principals are a primary target for
+      attackers seeking persistent access after initial compromise.
+    check_type: threshold
+    severity: high
+    effort: medium
+    graph_endpoint: /servicePrincipals
+    expected:
+      max: 10
+    blast_radius:
+      - "Reducing SP permissions may break application functionality"
+      - "Test permission changes in non-production first"
+      - "Coordinate with application teams before reducing scope"
+    community_ref: "identity/service-principals"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/develop/security-best-practices-for-app-registration
+
+  # ── SECTION 6: GUEST AND EXTERNAL ACCESS ─────────────────────────────────
+
+  - control_id: ENTRA-GUEST-01
+    title: "Guest user access restricted to their own resources"
+    description: >
+      Guest users must have restricted directory access. Default
+      guest permissions allow directory enumeration — guests can
+      see all users groups and other tenant objects. Restrict to
+      limited access level in external collaboration settings.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /policies/authenticationMethodsPolicy
+    expected:
+      _note: "Guest user access level must be restricted in external collaboration settings"
+    blast_radius:
+      - "Guests relying on directory enumeration for collaboration will be affected"
+      - "External collaboration scenarios must be reviewed"
+      - "Guest access reviews must be configured alongside restriction"
+    community_ref: "identity/guest-users"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/external-identities/external-collaboration-settings-configure
+
+  - control_id: ENTRA-GUEST-02
+    title: "Guest access reviews configured"
+    description: >
+      Recurring access reviews must be configured for guest users.
+      Guests accumulate over time and many become orphaned when
+      business relationships end. Stale guests retain access to
+      shared content and collaboration spaces indefinitely.
+    check_type: threshold
+    severity: medium
+    effort: low
+    graph_endpoint: /guests
+    expected:
+      max: 0
+    blast_radius:
+      - "Guests removed in reviews lose immediate access to shared content"
+      - "Business owners must be identified as reviewers before enabling"
+      - "Guest removal must be coordinated with business stakeholders"
+    community_ref: "identity/guest-users"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/governance/access-reviews-overview
+
+  # ── SECTION 7: IDENTITY PROTECTION AND MONITORING ───────────────────────
+
+  - control_id: ENTRA-IDP-01
+    title: "Identity Protection — risky users reviewed and remediated"
+    description: >
+      Users flagged as risky by Entra ID Protection must be
+      reviewed and remediated promptly. Risky users indicate
+      leaked credentials or suspicious activity patterns.
+      Unactioned risky users are confirmed accounts under attack.
+    check_type: threshold
+    severity: critical
+    effort: low
+    graph_endpoint: /security/alerts_v2
+    expected:
+      max: 0
+    blast_radius:
+      - "No blast radius — reviewing risky users is non-disruptive"
+      - "Remediation requires user password reset or MFA registration"
+    community_ref: "identity/risk-policies"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/identity-protection/howto-identity-protection-investigate-risk
+
+  - control_id: ENTRA-IDP-02
+    title: "Sign-in diagnostic logs retained minimum 30 days"
+    description: >
+      Entra ID sign-in logs must be retained for at least 30 days.
+      Default retention is 30 days for P1 and 90 days for P2.
+      Sign-in logs are required for incident investigation and
+      detecting legacy authentication bypass attempts.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Sign-in logs must be accessible and retained"
+    blast_radius:
+      - "No blast radius — log retention is non-disruptive"
+      - "Log Analytics workspace costs increase with extended retention"
+    community_ref: "compliance/audit-log"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/reports-monitoring/reference-reports-data-retention
+
+  - control_id: ENTRA-IDP-03
+    title: "New Global Admin account creation triggers alert"
+    description: >
+      An alert must be configured to fire immediately when a new
+      Global Administrator account is created. The Stryker attack
+      created a new GA account after the initial compromise.
+      Immediate alerting would have detected this within minutes.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /security/alerts_v2
+    expected:
+      _note: "Alert rule must exist for new GA account creation"
+    blast_radius:
+      - "No blast radius — alerting is non-disruptive"
+      - "Alert destination must be monitored 24/7"
+    community_ref: "identity/pim-roles"
+    references:
+      - https://www.cisa.gov/news-events/alerts/2026/03/18/cisa-urges-endpoint-management-system-hardening-after-cyberattack-against-us-organization
+      - https://learn.microsoft.com/en-us/azure/active-directory/roles/security-planning
+
+  # ── SECTION 8: DOMAIN AND PASSWORD POLICY ────────────────────────────────
+
+  - control_id: ENTRA-DOM-01
+    title: "Password never expires for cloud-only accounts"
+    description: >
+      Cloud-only account passwords must be set to never expire.
+      Password expiry encourages weak predictable passwords.
+      When combined with phishing-resistant MFA static passwords
+      are acceptable — the MFA is the primary control.
+    check_type: value
+    severity: medium
+    effort: low
+    graph_endpoint: /domains
+    expected:
+      field: passwordValidityPeriodInDays
+      value: 2147483647
+    blast_radius:
+      - "Users approaching expiry will no longer be prompted to change"
+      - "On-premises synced accounts are not affected by this setting"
+      - "Helpdesk password reset volume may change"
+    community_ref: "identity/password-policy"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/admin/misc/password-policy-recommendations
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: ENTRA-DOM-02
+    title: "All domains verified in Entra ID"
+    description: >
+      All custom domains used for email and identity must be
+      verified in Entra ID. Unverified domains cannot be used
+      for mail flow and indicate incomplete domain configuration
+      that may affect email authentication.
+    check_type: value
+    severity: medium
+    effort: low
+    graph_endpoint: /domains
+    expected:
+      field: isVerified
+      value: true
+    blast_radius:
+      - "No blast radius — domain verification is non-disruptive"
+      - "DNS changes required for verification may affect mail flow"
+    community_ref: "exchange/dmarc"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/fundamentals/add-custom-domain

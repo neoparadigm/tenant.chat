@@ -2,77 +2,19 @@ framework: CIS Microsoft 365 v3.1
 version: "3.1"
 description: >
   CIS Microsoft 365 Foundations Benchmark v3.1.
-  Community-maintained mapping to Graph API checks.
+  Identity controls are owned by the Entra Identity baseline.
+  This file covers mail security, Teams, SharePoint, compliance,
+  and audit controls from the CIS benchmark.
 
 controls:
-
-  - control_id: CIS-1.1.1
-    title: "Legacy authentication blocked for all users"
-    description: >
-      Ensure legacy authentication is blocked via Conditional Access.
-      Legacy auth does not support MFA and is the primary vector
-      for credential attacks against M365 tenants.
-    check_type: presence
-    severity: critical
-    effort: low
-    graph_endpoint: /identity/conditionalAccess/policies
-    expected:
-      state: enabled
-      conditions.clientAppTypes: [exchangeActiveSync, other]
-      grantControls.builtInControls: [block]
-    blast_radius:
-      - "Exchange ActiveSync devices using basic auth"
-      - "IMAP and POP email clients"
-      - "Applications using basic auth to Exchange"
-      - "Printers using SMTP AUTH scan to email"
-    community_ref: "identity/legacy-auth"
-    references:
-      - https://www.cisecurity.org/benchmark/microsoft_365
-
-  - control_id: CIS-1.1.3
-    title: "MFA enabled for all users"
-    description: >
-      Ensure MFA is registered and enabled for all licensed users.
-      Accounts without MFA are the primary target for account takeover.
-    check_type: coverage
-    severity: critical
-    effort: low
-    graph_endpoint: /reports/authenticationMethods/userRegistrationDetails
-    expected:
-      field: isMfaRegistered
-      value: true
-      min_percent: 100
-    blast_radius:
-      - "Users without MFA will be blocked when CA policy enforced"
-      - "Service accounts need app-based auth not MFA"
-    community_ref: "identity/mfa-registration"
-    references:
-      - https://www.cisecurity.org/benchmark/microsoft_365
-
-  - control_id: CIS-1.2.1
-    title: "Fewer than 5 Global Administrators"
-    description: >
-      Ensure no more than 5 users hold the Global Administrator role.
-      Excess Global Admins significantly increase the attack surface.
-    check_type: threshold
-    severity: critical
-    effort: medium
-    graph_endpoint: /admins
-    expected:
-      max: 5
-    blast_radius:
-      - "Excess admins need roles removed and PIM eligible assignment"
-      - "Break glass accounts must be excluded from this count"
-    community_ref: "identity/pim-roles"
-    references:
-      - https://www.cisecurity.org/benchmark/microsoft_365
 
   - control_id: CIS-2.1.1
     title: "Password never expires for cloud-only accounts"
     description: >
-      Cloud-only account passwords should be set to never expire.
-      Password expiry encourages weak predictable passwords and
-      conflicts with MFA-protected accounts.
+      CIS 2.1.1 — Cloud-only account passwords must be set to never
+      expire. Password expiry encourages predictable weak passwords.
+      Combined with MFA static passwords are acceptable — MFA is
+      the primary control not password rotation.
     check_type: value
     severity: medium
     effort: low
@@ -81,36 +23,292 @@ controls:
       field: passwordValidityPeriodInDays
       value: 2147483647
     blast_radius:
-      - "Users currently near expiry will no longer be prompted"
-      - "On-premises synced accounts are not affected by this setting"
+      - "Users approaching expiry will no longer be prompted to change"
+      - "On-premises synced accounts are not affected"
     community_ref: "identity/password-policy"
     references:
       - https://www.cisecurity.org/benchmark/microsoft_365
 
-  - control_id: CIS-5.1.1
-    title: "Audit log enabled and retention sufficient"
+  - control_id: CIS-3.1.1
+    title: "External email forwarding blocked at transport level"
     description: >
-      Unified audit log must be enabled and retained for at least
-      90 days. Audit logs are required for incident investigation
-      and regulatory compliance.
+      CIS 3.1.1 — Auto-forwarding of email to external domains
+      must be blocked via outbound spam policy or transport rule.
+      External auto-forwarding is the primary data exfiltration
+      vector in business email compromise attacks.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Outbound spam policy must block auto-forwarding to external"
+    blast_radius:
+      - "Legitimate auto-forward rules to personal email will break"
+      - "Business mail flow to partner domains may be affected"
+      - "Shared mailbox delegation forwarding needs review"
+    community_ref: "exchange/external-forwarding"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+      - https://learn.microsoft.com/en-us/microsoft-365/security/office-365-security/outbound-spam-policies-configure
+
+  - control_id: CIS-3.1.2
+    title: "DMARC policy published and set to quarantine or reject"
+    description: >
+      CIS 3.1.2 — A DMARC TXT record must exist for all verified
+      domains with policy set to quarantine or reject. Without
+      DMARC your domains can be spoofed in phishing attacks
+      targeting customers partners and employees.
+    check_type: value
+    severity: critical
+    effort: low
+    graph_endpoint: /domains
+    expected:
+      field: isVerified
+      value: true
+    blast_radius:
+      - "Legitimate email from unauthenticated senders may be quarantined"
+      - "Third-party senders must be in SPF and DKIM before enforcing"
+      - "Start with p=none monitoring mode before quarantine or reject"
+    community_ref: "exchange/dmarc"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-3.1.3
+    title: "SPF record published for all verified domains"
+    description: >
+      CIS 3.1.3 — SPF TXT records must be published for all
+      verified domains. SPF prevents spoofing of your domains
+      by specifying authorised sending mail servers. Required
+      for DMARC enforcement.
+    check_type: value
+    severity: high
+    effort: low
+    graph_endpoint: /domains
+    expected:
+      field: isVerified
+      value: true
+    blast_radius:
+      - "No blast radius — SPF record addition is non-disruptive"
+      - "All authorised sending services must be included in SPF"
+    community_ref: "exchange/dmarc"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-3.1.4
+    title: "DKIM enabled for all verified domains"
+    description: >
+      CIS 3.1.4 — DomainKeys Identified Mail must be enabled
+      for all verified domains. DKIM adds a cryptographic
+      signature to outbound email proving the message has not
+      been tampered with in transit.
+    check_type: value
+    severity: high
+    effort: low
+    graph_endpoint: /domains
+    expected:
+      field: isVerified
+      value: true
+    blast_radius:
+      - "No blast radius — DKIM signing is non-disruptive"
+      - "DNS propagation delay of up to 48 hours expected"
+    community_ref: "exchange/dmarc"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-3.2.1
+    title: "Safe Attachments policy covering all domains"
+    description: >
+      CIS 3.2.1 — Microsoft Defender for Office 365 Safe Attachments
+      must be enabled for all accepted domains. Detonates email
+      attachments in a sandbox before delivery protecting against
+      malware zero-days in Office documents and PDFs.
     check_type: presence
     severity: high
     effort: low
     graph_endpoint: /security/auditLog/queries
     expected:
-      _note: "Audit log availability check"
+      _note: "Safe Attachments policy must exist covering all domains"
+    blast_radius:
+      - "Email delivery latency increases slightly due to detonation"
+      - "Password-protected attachments bypass scanning"
+      - "Dynamic Delivery mode reduces user impact"
+    community_ref: "exchange/safe-attachments"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-3.2.2
+    title: "Safe Links policy configured for all users"
+    description: >
+      CIS 3.2.2 — Safe Links must be configured for all users
+      covering email and Office applications. Provides time-of-click
+      URL rewriting protection against malicious links including
+      delayed weaponisation of initially clean URLs.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Safe Links policy must exist covering email and Office apps"
+    blast_radius:
+      - "Some URL-based workflows may need Safe Links exclusions"
+    community_ref: "exchange/safe-links"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-3.3.1
+    title: "Teams external access restricted to allowed domains"
+    description: >
+      CIS 3.3.1 — Teams external access must be restricted to
+      specific allowed domains or disabled. Unrestricted external
+      access allows anyone with a Teams account to initiate
+      conversations with your users.
+    check_type: presence
+    severity: high
+    effort: medium
+    graph_endpoint: /teamwork
+    expected:
+      _note: "Teams external access policy must restrict to allowed domains"
+    blast_radius:
+      - "Users communicating with unrestricted external domains will be blocked"
+      - "Allowed domain list must be maintained with business partners"
+    community_ref: "teams/external-access"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-3.3.2
+    title: "Teams guest access reviewed and controlled"
+    description: >
+      CIS 3.3.2 — Guest access to Teams must be reviewed and
+      controlled. Guests should only be added to specific teams
+      with business justification. Unreviewed guests accumulate
+      and may retain access after the business relationship ends.
+    check_type: threshold
+    severity: high
+    effort: low
+    graph_endpoint: /guests
+    expected:
+      max: 0
+    blast_radius:
+      - "Guests removed from teams lose access to shared channels and files"
+      - "Business owners must be identified as reviewers"
+    community_ref: "identity/guest-users"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-3.4.1
+    title: "SharePoint external sharing restricted to known domains"
+    description: >
+      CIS 3.4.1 — SharePoint Online external sharing must be
+      restricted to specific allowed domains or existing external
+      users only. Unrestricted sharing allows sensitive documents
+      to be shared with any email address.
+    check_type: value
+    severity: high
+    effort: medium
+    graph_endpoint: /sites
+    expected:
+      field: sharingCapability
+      value: ExistingExternalUserSharingOnly
+    blast_radius:
+      - "Anonymous sharing links will be disabled"
+      - "Sharing with new external users will require admin approval"
+      - "Existing external user access is not affected"
+    community_ref: "sharepoint/external-sharing"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-3.4.2
+    title: "OneDrive sync restricted to domain-joined devices"
+    description: >
+      CIS 3.4.2 — OneDrive sync must be restricted to
+      domain-joined or Intune-managed devices. Unrestricted
+      sync allows corporate data to be downloaded to any
+      personal device including unmanaged and potentially
+      compromised devices.
+    check_type: presence
+    severity: medium
+    effort: medium
+    graph_endpoint: /sites
+    expected:
+      _note: "OneDrive sync restriction policy must exist"
+    blast_radius:
+      - "Users syncing OneDrive on personal devices will lose sync"
+      - "BYOD users need Intune enrolment before sync resumes"
+    community_ref: "sharepoint/external-sharing"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-4.1.1
+    title: "Unified audit log enabled and retained minimum 90 days"
+    description: >
+      CIS 4.1.1 — The unified audit log must be enabled and
+      retained for at least 90 days. Required for security
+      incident investigation compliance evidence and forensic
+      analysis. Default retention is 90 days for E3 and 1 year
+      for E5.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Unified audit log must be enabled and accessible"
     blast_radius:
       - "No blast radius — enabling audit log is non-disruptive"
+      - "Log Analytics workspace costs increase with extended retention"
     community_ref: "compliance/audit-log"
     references:
       - https://www.cisecurity.org/benchmark/microsoft_365
 
-  - control_id: CIS-3.1.1
-    title: "Stale devices not checked in for 30 days"
+  - control_id: CIS-4.2.1
+    title: "DLP policies active and protecting sensitive information"
     description: >
-      Managed devices not syncing with Intune for 30+ days may be
-      lost, stolen, or no longer compliant. These should be
-      reviewed and retired or remediated.
+      CIS 4.2.1 — Data Loss Prevention policies must be active
+      and configured to protect sensitive information types.
+      DLP prevents accidental or malicious sharing of data
+      classified as sensitive including PII financial data
+      and health information.
+    check_type: presence
+    severity: high
+    effort: medium
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "At least one active DLP policy must exist"
+    blast_radius:
+      - "False positives may block legitimate business communications"
+      - "Users need training on DLP notifications and overrides"
+      - "Start in test mode before enforcing"
+    community_ref: "compliance/dlp"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-4.3.1
+    title: "Sensitivity labels published to all users"
+    description: >
+      CIS 4.3.1 — Microsoft Purview sensitivity labels must be
+      published and available to all users. Labels enable
+      classification and protection of documents and emails.
+      Required for downstream DLP and MCAS policies to function.
+    check_type: presence
+    severity: medium
+    effort: medium
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Sensitivity label policy must be published to all users"
+    blast_radius:
+      - "No blast radius — publishing labels is additive"
+      - "Users need training on label selection and usage"
+      - "Auto-labelling policies have higher blast radius"
+    community_ref: "compliance/sensitivity-labels"
+    references:
+      - https://www.cisecurity.org/benchmark/microsoft_365
+
+  - control_id: CIS-5.1.1
+    title: "Stale devices not checked in for 30 days reviewed"
+    description: >
+      CIS 5.1.1 — Managed devices not syncing for 30 or more
+      days must be reviewed. Stale devices retain compliance
+      status and may pass CA checks despite being unmanaged
+      lost or stolen.
     check_type: staleness
     severity: medium
     effort: low
@@ -120,7 +318,7 @@ controls:
       threshold_days: 30
     blast_radius:
       - "Retiring stale devices removes them from compliance scope"
-      - "Users with retired devices will need to re-enrol"
+      - "Users with retired devices must re-enrol"
     community_ref: "intune/managed-devices"
     references:
       - https://www.cisecurity.org/benchmark/microsoft_365

@@ -1,67 +1,117 @@
 framework: Microsoft Zero Trust RaMP
-version: "1.0"
+version: "2024"
 description: >
-  Microsoft Zero Trust Rapid Modernization Plan.
-  Prioritised controls mapped to Graph API checks.
+  Microsoft Zero Trust Rapid Modernisation Plan controls.
+  Identity controls are owned by the Entra Identity baseline.
+  This file covers device, data, and network Zero Trust controls
+  mapped to the ZT RaMP deployment guide.
 
 controls:
-
-  - control_id: ZT-ID-01
-    title: "Phishing-resistant MFA for administrators"
-    description: >
-      All privileged accounts must use phishing-resistant MFA
-      such as FIDO2 security keys or certificate-based auth.
-      SMS and voice MFA are insufficient for admin accounts.
-    check_type: coverage
-    severity: critical
-    effort: medium
-    graph_endpoint: /reports/authenticationMethods/userRegistrationDetails
-    expected:
-      field: isMfaCapable
-      value: true
-      min_percent: 100
-    blast_radius:
-      - "Admins without phishing-resistant MFA will need to register"
-      - "FIDO2 keys or certificates need procurement and provisioning"
-    community_ref: "identity/mfa-registration"
-    references:
-      - https://learn.microsoft.com/en-us/security/zero-trust/zero-trust-identity-device-access-policies-common
-
-  - control_id: ZT-ID-02
-    title: "Guest access reviewed and restricted"
-    description: >
-      Guest users should be reviewed regularly. Unrestricted guest
-      access allows external users to enumerate your tenant directory
-      and access shared resources beyond their intended scope.
-    check_type: threshold
-    severity: medium
-    effort: low
-    graph_endpoint: /guests
-    expected:
-      max: 0
-      _note: "Flag for review — not a hard block"
-    blast_radius:
-      - "Guest cleanup requires coordination with business owners"
-      - "Active collaborations must be identified before removal"
-    community_ref: "identity/guest-users"
-    references:
-      - https://learn.microsoft.com/en-us/security/zero-trust/zero-trust-identity-device-access-policies-guest-external
 
   - control_id: ZT-DEVICE-01
     title: "Device compliance policies assigned to all users"
     description: >
-      All managed devices must have a compliance policy assigned.
-      Devices without a compliance policy are marked compliant
-      by default — a significant security gap.
+      Zero Trust RaMP Step 1 — All managed devices must have
+      compliance policies assigned and enforced. Zero Trust
+      requires verified device health before granting access.
+      Devices without compliance policies are trusted by default
+      — the opposite of Zero Trust.
     check_type: presence
     severity: high
     effort: medium
     graph_endpoint: /deviceManagement/deviceCompliancePolicies
     expected:
-      _note: "At least one compliance policy must exist and be assigned"
+      _note: "Compliance policies must exist for all device platforms"
     blast_radius:
-      - "Devices currently marked compliant by default may lose access"
-      - "Compliance policy settings need validation before assignment"
+      - "Personal and BYOD devices will immediately lose access"
+      - "Unmanaged devices used for admin tasks will be blocked"
+      - "Guest users on unmanaged devices will lose access"
     community_ref: "intune/device-compliance"
     references:
-      - https://learn.microsoft.com/en-us/mem/intune/protect/device-compliance-get-started
+      - https://learn.microsoft.com/en-us/microsoft-365/security/microsoft-365-zero-trust
+
+  - control_id: ZT-DEVICE-02
+    title: "Endpoint detection and response deployed to all devices"
+    description: >
+      Zero Trust RaMP Step 2 — Microsoft Defender for Endpoint
+      must be deployed to all managed devices. Zero Trust requires
+      continuous device health signals for access decisions.
+      Devices without EDR are invisible to the security posture
+      engine.
+    check_type: coverage
+    severity: critical
+    effort: medium
+    graph_endpoint: /deviceManagement/managedDevices
+    expected:
+      field: managementAgent
+      value: mdm
+      min_percent: 95
+    blast_radius:
+      - "MDE deployment requires device restart on some configurations"
+      - "Third-party EDR must be evaluated for compatibility"
+    community_ref: "defender/mde-onboarding"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/security/microsoft-365-zero-trust
+
+  - control_id: ZT-DATA-01
+    title: "Sensitivity labels applied to sensitive data"
+    description: >
+      Zero Trust RaMP data protection — Sensitivity labels must
+      be applied to classify and protect sensitive information.
+      Zero Trust data protection requires knowing what data you
+      have before you can protect it. Labels drive downstream
+      DLP encryption and access controls.
+    check_type: presence
+    severity: medium
+    effort: high
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Sensitivity labels must be published and in use"
+    blast_radius:
+      - "No blast radius — publishing labels is additive"
+      - "Auto-labelling enforcement has higher blast radius"
+    community_ref: "compliance/sensitivity-labels"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/security/microsoft-365-zero-trust
+
+  - control_id: ZT-DATA-02
+    title: "Cloud app access governed by Defender for Cloud Apps"
+    description: >
+      Zero Trust RaMP — Microsoft Defender for Cloud Apps must
+      be configured to govern SaaS application access. Provides
+      visibility into shadow IT app usage data exfiltration
+      attempts and anomalous access patterns across all cloud
+      applications.
+    check_type: presence
+    severity: high
+    effort: medium
+    graph_endpoint: /security/alerts_v2
+    expected:
+      _note: "Defender for Cloud Apps must be active and connected"
+    blast_radius:
+      - "No blast radius — MDCA discovery is passive initially"
+      - "Block policies for unsanctioned apps require careful testing"
+    community_ref: "defender/cloud-apps"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/security/microsoft-365-zero-trust
+
+  - control_id: ZT-NETWORK-01
+    title: "Network access controlled via Zero Trust Network Access"
+    description: >
+      Zero Trust RaMP network pillar — Remote network access must
+      use Zero Trust Network Access principles rather than
+      traditional VPN. ZTNA verifies identity and device health
+      before granting access to specific applications rather
+      than broad network segments.
+    check_type: presence
+    severity: medium
+    effort: high
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "ZTNA solution must be deployed for remote access"
+    blast_radius:
+      - "VPN-dependent workflows must be migrated before ZTNA enforcement"
+      - "Network segmentation must be reviewed before deployment"
+    community_ref: "network/ztna"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/security/microsoft-365-zero-trust

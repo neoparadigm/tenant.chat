@@ -1,0 +1,511 @@
+framework: Microsoft Intune Security Baseline
+version: "2024-CISA"
+description: >
+  Comprehensive Microsoft Intune security baseline incorporating
+  Microsoft Intune Security Baseline v24H2, CISA advisory March 2026
+  (Stryker breach), CIS Microsoft 365 Foundations v3.1 Intune controls,
+  Microsoft Zero Trust RaMP device controls, and NIST 800-53 mappings.
+  Directly addresses the attack vector used in the Stryker/Handala breach.
+
+controls:
+
+  # ── CISA ADVISORY CONTROLS (March 2026 — Stryker breach) ────────────────
+
+  - control_id: CISA-INTUNE-01
+    title: "Multi Admin Approval configured for device wipe"
+    description: >
+      CISA specifically mandates that device wipe operations require
+      approval from a second administrator. The Stryker breach succeeded
+      because a single compromised Global Admin account could wipe
+      80,000 devices without any approval workflow. This is the
+      most critical control from the March 2026 CISA advisory.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /deviceManagement/deviceConfigurations
+    expected:
+      _note: "Multi Admin Approval policy must exist for wipe operations"
+    blast_radius:
+      - "Wipe operations will require a second admin to approve"
+      - "Automated wipe scripts will break without approval workflow"
+      - "Break glass scenarios need documented approval bypass procedure"
+    community_ref: "intune/multi-admin-approval"
+    references:
+      - https://www.cisa.gov/news-events/alerts/2026/03/18/cisa-urges-endpoint-management-system-hardening-after-cyberattack-against-us-organization
+      - https://learn.microsoft.com/en-us/mem/intune/protect/access-policies-use-multi-admin-approval
+
+  - control_id: CISA-INTUNE-02
+    title: "Phishing-resistant MFA enforced for all Intune admins"
+    description: >
+      The Stryker breach used adversary-in-the-middle phishing to
+      bypass standard MFA. CISA mandates FIDO2, PIV, or
+      certificate-based authentication for all Intune administrators.
+      SMS and authenticator app MFA are insufficient for admin accounts.
+    check_type: coverage
+    severity: critical
+    effort: medium
+    graph_endpoint: /reports/authenticationMethods/userRegistrationDetails
+    expected:
+      field: isMfaCapable
+      value: true
+      min_percent: 100
+    blast_radius:
+      - "Admins without FIDO2 or cert-based MFA will need to register"
+      - "FIDO2 security keys need procurement and provisioning"
+      - "Certificate-based auth requires PKI infrastructure"
+    community_ref: "identity/mfa-registration"
+    references:
+      - https://www.cisa.gov/news-events/alerts/2026/03/18/cisa-urges-endpoint-management-system-hardening-after-cyberattack-against-us-organization
+      - https://learn.microsoft.com/en-us/entra/identity/authentication/concept-authentication-strengths
+
+  - control_id: CISA-INTUNE-03
+    title: "Intune admin roles follow least privilege — no GA doing Intune ops"
+    description: >
+      Global Administrator must not be used for day-to-day Intune
+      operations. The Stryker attacker used a GA account to access
+      Intune. Dedicated Intune Service Administrator or scoped RBAC
+      roles must be used instead. GA should be emergency access only.
+    check_type: threshold
+    severity: critical
+    effort: medium
+    graph_endpoint: /admins
+    expected:
+      max: 2
+    blast_radius:
+      - "Admins currently using GA for Intune ops need role reassignment"
+      - "Intune RBAC roles must be configured before GA access removed"
+      - "Automation using GA service accounts needs updating"
+    community_ref: "identity/pim-roles"
+    references:
+      - https://www.cisa.gov/news-events/alerts/2026/03/18/cisa-urges-endpoint-management-system-hardening-after-cyberattack-against-us-organization
+      - https://learn.microsoft.com/en-us/mem/intune/fundamentals/role-based-access-control
+
+  - control_id: CISA-INTUNE-04
+    title: "PIM configured for Intune administrative roles"
+    description: >
+      Privileged Identity Management must be configured for all
+      Intune administrative roles. CISA explicitly mandates PIM
+      deployment for Intune, Entra ID, and all Microsoft software.
+      Just-in-time activation with approval required for Intune admin.
+    check_type: threshold
+    severity: critical
+    effort: medium
+    graph_endpoint: /admins
+    expected:
+      max: 2
+    blast_radius:
+      - "Admins must activate Intune role before performing operations"
+      - "Automated Intune management scripts using permanent roles will fail"
+      - "Approval workflow must be configured before converting accounts"
+    community_ref: "identity/pim-roles"
+    references:
+      - https://www.cisa.gov/news-events/alerts/2026/03/18/cisa-urges-endpoint-management-system-hardening-after-cyberattack-against-us-organization
+      - https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-configure
+
+  - control_id: CISA-INTUNE-05
+    title: "Conditional Access covers Microsoft Intune admin portal"
+    description: >
+      A Conditional Access policy must specifically target the
+      Microsoft Intune app and Microsoft Endpoint Manager portal.
+      General CA policies do not automatically cover admin portals.
+      Stryker lacked CA coverage on their Intune administrative surface.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      conditions.applications.includeApplications: ["0000000a-0000-0000-c000-000000000000"]
+    blast_radius:
+      - "Admins will need to meet CA requirements before accessing Intune"
+      - "Break glass accounts must be excluded from this policy"
+      - "Test with report-only mode before enforcing"
+    community_ref: "identity/conditional-access"
+    references:
+      - https://www.cisa.gov/news-events/alerts/2026/03/18/cisa-urges-endpoint-management-system-hardening-after-cyberattack-against-us-organization
+
+  - control_id: CISA-INTUNE-06
+    title: "Intune audit log enabled and admin actions monitored"
+    description: >
+      Intune audit logging must be enabled and all administrative
+      actions including device wipes must be captured and alerted.
+      CISA requires visibility into what admin accounts are doing
+      within endpoint management systems.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /deviceManagement/deviceConfigurations
+    expected:
+      _note: "Intune audit log must be enabled and accessible"
+    blast_radius:
+      - "No blast radius — enabling audit log is non-disruptive"
+      - "Storage costs increase with full audit logging"
+    community_ref: "intune/audit-log"
+    references:
+      - https://www.cisa.gov/news-events/alerts/2026/03/18/cisa-urges-endpoint-management-system-hardening-after-cyberattack-against-us-organization
+      - https://learn.microsoft.com/en-us/mem/intune/fundamentals/monitor-audit-logs
+
+  - control_id: CISA-INTUNE-07
+    title: "Scope tags configured — admins restricted to their device scope"
+    description: >
+      Intune scope tags must be configured to limit which devices each
+      admin can manage. Without scope tags every Intune admin can
+      target every device including bulk wipe operations across the
+      entire fleet. This is a key blast radius reduction control.
+    check_type: presence
+    severity: high
+    effort: medium
+    graph_endpoint: /deviceManagement/deviceConfigurations
+    expected:
+      _note: "Scope tags must exist and be assigned to admin roles"
+    blast_radius:
+      - "Admins currently managing all devices will be restricted to scope"
+      - "Helpdesk workflows must be updated to reflect scope boundaries"
+    community_ref: "intune/scope-tags"
+    references:
+      - https://learn.microsoft.com/en-us/mem/intune/fundamentals/scope-tags
+
+  # ── DEVICE COMPLIANCE CONTROLS ───────────────────────────────────────────
+
+  - control_id: INTUNE-COMP-01
+    title: "Device compliance policy assigned to all Windows devices"
+    description: >
+      All Windows managed devices must have a compliance policy
+      assigned. Devices without a compliance policy are marked
+      compliant by default — a critical security gap that allows
+      non-compliant devices to pass CA policy checks.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /deviceManagement/deviceCompliancePolicies
+    expected:
+      _note: "At least one compliance policy targeting Windows devices"
+    blast_radius:
+      - "Devices currently marked compliant by default may become non-compliant"
+      - "CA policies requiring compliant device will block non-compliant devices"
+      - "Grace period must be configured before enforcing"
+    community_ref: "intune/device-compliance"
+    references:
+      - https://learn.microsoft.com/en-us/mem/intune/protect/device-compliance-get-started
+
+  - control_id: INTUNE-COMP-02
+    title: "Mobile device compliance policy exists for iOS and Android"
+    description: >
+      Separate compliance policies must exist for iOS and Android
+      devices. Mobile devices without compliance policies are
+      compliant by default and bypass CA device compliance checks.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /deviceManagement/deviceCompliancePolicies
+    expected:
+      _note: "Compliance policies must exist for iOS and Android platforms"
+    blast_radius:
+      - "Mobile devices currently compliant by default may lose access"
+      - "BYOD users need communication before policy enforcement"
+    community_ref: "intune/device-compliance"
+    references:
+      - https://learn.microsoft.com/en-us/mem/intune/protect/device-compliance-get-started
+
+  - control_id: INTUNE-COMP-03
+    title: "Non-compliant devices count within acceptable threshold"
+    description: >
+      The number of non-compliant managed devices must be below
+      10% of the total fleet. High non-compliance rates indicate
+      either policy misconfiguration or unmanaged device sprawl.
+    check_type: coverage
+    severity: high
+    effort: medium
+    graph_endpoint: /deviceManagement/managedDevices
+    expected:
+      field: complianceState
+      value: compliant
+      min_percent: 90
+    blast_radius:
+      - "Enforcing CA compliant device requirement will block non-compliant devices"
+      - "Non-compliant devices must be remediated before CA enforcement"
+    community_ref: "intune/device-compliance"
+    references:
+      - https://learn.microsoft.com/en-us/mem/intune/protect/device-compliance-get-started
+
+  - control_id: INTUNE-COMP-04
+    title: "Jailbroken and rooted devices blocked"
+    description: >
+      Compliance policies must mark jailbroken iOS and rooted
+      Android devices as non-compliant. Jailbroken devices bypass
+      OS security controls and cannot be trusted for corporate access.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /deviceManagement/deviceCompliancePolicies
+    expected:
+      _note: "Compliance policy must include jailbreak/root detection"
+    blast_radius:
+      - "Jailbroken devices will immediately lose corporate access"
+      - "Users with jailbroken personal devices will need to remediate"
+    community_ref: "intune/device-compliance"
+    references:
+      - https://learn.microsoft.com/en-us/mem/intune/protect/compliance-policy-create-ios
+
+  # ── DEVICE CONFIGURATION CONTROLS ────────────────────────────────────────
+
+  - control_id: INTUNE-CFG-01
+    title: "BitLocker encryption required on Windows devices"
+    description: >
+      All Windows managed devices must have BitLocker drive
+      encryption enabled and enforced via compliance policy.
+      Unencrypted devices expose all corporate data if lost or stolen.
+      BitLocker recovery keys must be escrowed to Entra ID.
+    check_type: coverage
+    severity: critical
+    effort: medium
+    graph_endpoint: /deviceManagement/managedDevices
+    expected:
+      field: isEncrypted
+      value: true
+      min_percent: 95
+    blast_radius:
+      - "Devices without TPM 2.0 may not support BitLocker"
+      - "Encryption process temporarily impacts device performance"
+      - "Recovery keys must be escrowed to Entra ID before enforcing"
+      - "Pre-provisioned devices need BitLocker enabled before shipping"
+    community_ref: "intune/bitlocker"
+    references:
+      - https://learn.microsoft.com/en-us/mem/intune/protect/encrypt-devices
+
+  - control_id: INTUNE-CFG-02
+    title: "LAPS configured for local administrator accounts"
+    description: >
+      Windows Local Administrator Password Solution must be configured
+      via Intune policy. Shared or known local admin passwords are
+      the primary lateral movement vector in domain environments.
+      Each device must have a unique, rotated local admin password.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /deviceManagement/deviceConfigurations
+    expected:
+      _note: "LAPS configuration profile must exist and be assigned"
+    blast_radius:
+      - "Existing local admin passwords will be rotated on first sync"
+      - "Helpdesk workflows using shared local admin passwords must update"
+      - "Recovery process needs documenting before enabling"
+      - "Third-party LAPS solutions must be removed first"
+    community_ref: "intune/laps"
+    references:
+      - https://learn.microsoft.com/en-us/mem/intune/protect/windows-laps-overview
+
+  - control_id: INTUNE-CFG-03
+    title: "Windows OS minimum version enforced via compliance"
+    description: >
+      Managed Windows devices must meet a minimum OS version
+      requirement in the compliance policy. Outdated OS versions
+      contain unpatched vulnerabilities. Minimum recommended
+      version is Windows 11 22H2 or Windows 10 22H2.
+    check_type: staleness
+    severity: high
+    effort: medium
+    graph_endpoint: /deviceManagement/managedDevices
+    expected:
+      field: lastSyncDateTime
+      threshold_days: 30
+    blast_radius:
+      - "Devices on unsupported OS versions will become non-compliant"
+      - "Update ring policies needed before enforcing OS version"
+      - "Legacy hardware that cannot run required OS needs replacement plan"
+    community_ref: "intune/os-versions"
+    references:
+      - https://learn.microsoft.com/en-us/mem/intune/protect/compliance-policy-create-windows
+
+  - control_id: INTUNE-CFG-04
+    title: "Autopilot deployment profile configured"
+    description: >
+      Windows Autopilot deployment profile must exist for zero-touch
+      device provisioning. Without Autopilot devices require manual
+      provisioning increasing risk of misconfiguration and
+      delaying the time to secure posture for new devices.
+    check_type: presence
+    severity: medium
+    effort: medium
+    graph_endpoint: /deviceManagement/deviceConfigurations
+    expected:
+      _note: "Autopilot profile must exist and be assigned"
+    blast_radius:
+      - "No blast radius — Autopilot is additive not disruptive"
+      - "Applies to new device enrolments only"
+      - "Existing devices are not affected"
+    community_ref: "intune/autopilot"
+    references:
+      - https://learn.microsoft.com/en-us/mem/autopilot/windows-autopilot
+
+  - control_id: INTUNE-CFG-05
+    title: "Device enrolment restrictions configured"
+    description: >
+      Intune enrolment restrictions must be configured to limit
+      which device types and platforms can enrol. Without restrictions
+      any device can be enrolled including personal devices that
+      should not have access to corporate resources.
+    check_type: presence
+    severity: medium
+    effort: low
+    graph_endpoint: /deviceManagement/deviceConfigurations
+    expected:
+      _note: "Enrolment restriction policy must exist"
+    blast_radius:
+      - "Personal devices currently enrolled may be blocked from future enrolment"
+      - "BYOD programme must be reviewed before restricting platforms"
+    community_ref: "intune/enrolment"
+    references:
+      - https://learn.microsoft.com/en-us/mem/intune/enrollment/enrollment-restrictions-set
+
+  # ── DEFENDER INTEGRATION CONTROLS ────────────────────────────────────────
+
+  - control_id: INTUNE-DEF-01
+    title: "MDE onboarding coverage above 95 percent"
+    description: >
+      At least 95% of managed devices must be onboarded to
+      Microsoft Defender for Endpoint via Intune. Devices not
+      onboarded have no EDR coverage and are invisible to the SOC.
+      Non-onboarded devices are blind spots for threat detection.
+    check_type: coverage
+    severity: critical
+    effort: medium
+    graph_endpoint: /deviceManagement/managedDevices
+    expected:
+      field: managementAgent
+      value: mdm
+      min_percent: 95
+    blast_radius:
+      - "MDE onboarding requires device restart on some configurations"
+      - "Third-party AV must be removed before MDE can fully activate"
+      - "Onboarding package must be distributed via Intune policy"
+    community_ref: "defender/mde-onboarding"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/onboarding
+
+  - control_id: INTUNE-DEF-02
+    title: "Tamper protection enabled on all devices"
+    description: >
+      Tamper protection must be enabled via Intune endpoint security
+      policy preventing malicious software from disabling Microsoft
+      Defender security features. Without tamper protection an
+      attacker with local admin can disable AV before executing.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /deviceManagement/deviceConfigurations
+    expected:
+      _note: "Tamper protection endpoint security policy must exist"
+    blast_radius:
+      - "Third-party security tools that modify Defender settings will break"
+      - "Legacy management scripts that disable Defender will fail"
+      - "Test on pilot group before broad deployment"
+    community_ref: "defender/tamper-protection"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/prevent-changes-to-security-settings-with-tamper-protection
+
+  - control_id: INTUNE-DEF-03
+    title: "Attack Surface Reduction rules in block mode"
+    description: >
+      ASR rules must be configured via Intune endpoint security
+      policy in block mode not audit mode. ASR rules prevent
+      malicious behaviours commonly used in ransomware and
+      living-off-the-land attacks. Audit mode provides no protection.
+    check_type: presence
+    severity: high
+    effort: medium
+    graph_endpoint: /deviceManagement/deviceConfigurations
+    expected:
+      _note: "ASR rules policy must exist targeting Windows devices"
+    blast_radius:
+      - "ASR block mode may break legitimate applications using Office macros"
+      - "Run in audit mode for 2 weeks before switching to block"
+      - "Document all legitimate exclusions before enforcement"
+    community_ref: "defender/asr-rules"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/attack-surface-reduction
+
+  - control_id: INTUNE-DEF-04
+    title: "Real-time protection enforced via Intune policy"
+    description: >
+      Microsoft Defender Antivirus real-time protection must be
+      enabled and enforced via Intune endpoint security policy.
+      Users must not be able to disable real-time protection.
+      Devices without real-time protection are completely unprotected.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /deviceManagement/deviceConfigurations
+    expected:
+      _note: "Antivirus policy must enforce real-time protection"
+    blast_radius:
+      - "Performance-intensive workloads may see impact from scanning"
+      - "Exclusions must be documented and approved before enabling"
+    community_ref: "defender/real-time-protection"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/configure-real-time-protection-microsoft-defender-antivirus
+
+  - control_id: INTUNE-DEF-05
+    title: "Cloud-delivered protection enabled"
+    description: >
+      Microsoft Defender cloud-delivered protection must be enabled
+      via Intune policy. Cloud protection provides near-real-time
+      detection of new threats before signature updates are available.
+      Critical for zero-day and novel malware detection.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /deviceManagement/deviceConfigurations
+    expected:
+      _note: "Antivirus policy must enable cloud-delivered protection"
+    blast_radius:
+      - "Devices must have outbound internet access to Microsoft cloud"
+      - "Air-gapped devices cannot use cloud protection"
+    community_ref: "defender/cloud-protection"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/security/defender-endpoint/enable-cloud-protection-microsoft-defender-antivirus
+
+  # ── STALE DEVICE CONTROLS ────────────────────────────────────────────────
+
+  - control_id: INTUNE-STALE-01
+    title: "Stale devices not synced for 30 days reviewed"
+    description: >
+      Managed devices not syncing with Intune for 30 or more days
+      may be lost stolen or no longer compliant. These devices
+      retain their compliance status and can still pass CA checks
+      despite being unmanaged. Must be reviewed and retired.
+    check_type: staleness
+    severity: medium
+    effort: low
+    graph_endpoint: /deviceManagement/managedDevices
+    expected:
+      field: lastSyncDateTime
+      threshold_days: 30
+    blast_radius:
+      - "Retiring stale devices removes them from compliance scope"
+      - "Users with retired devices must re-enrol before regaining access"
+      - "Coordinate with users before retiring — device may be in use"
+    community_ref: "intune/managed-devices"
+    references:
+      - https://learn.microsoft.com/en-us/mem/intune/remote-actions/devices-wipe
+
+  - control_id: INTUNE-STALE-02
+    title: "Stale devices not synced for 90 days retired"
+    description: >
+      Devices not syncing for 90 or more days must be retired from
+      Intune. These devices are almost certainly lost or decommissioned.
+      Retaining them inflates device counts and creates ghost entries
+      that can be used to pass compliance checks.
+    check_type: staleness
+    severity: high
+    effort: low
+    graph_endpoint: /deviceManagement/managedDevices
+    expected:
+      field: lastSyncDateTime
+      threshold_days: 90
+    blast_radius:
+      - "Retired devices must re-enrol — users lose corporate access"
+      - "Device certificates are revoked on retirement"
+    community_ref: "intune/managed-devices"
+    references:
+      - https://learn.microsoft.com/en-us/mem/intune/remote-actions/devices-wipe

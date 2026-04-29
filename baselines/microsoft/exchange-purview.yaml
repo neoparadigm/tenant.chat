@@ -1,0 +1,149 @@
+framework: Microsoft Exchange and Purview Security Baseline
+version: "2024"
+description: >
+  Security baseline covering Exchange Online mail security,
+  Purview compliance, DLP policies, sensitivity labels,
+  and information protection controls.
+
+controls:
+
+  - control_id: EXO-01
+    title: "External email forwarding blocked at transport level"
+    description: >
+      Auto-forwarding of email to external domains must be
+      blocked via Exchange transport rule or outbound spam
+      policy. External forwarding is a primary data exfiltration
+      and business email compromise vector.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Anti-spam outbound policy must block auto-forwarding"
+    blast_radius:
+      - "Legitimate auto-forward rules to personal email will break"
+      - "Business mail flow to partner domains may be affected"
+      - "Shared mailbox delegation forwarding needs review"
+    community_ref: "exchange/external-forwarding"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/security/office-365-security/outbound-spam-policies-configure
+
+  - control_id: EXO-02
+    title: "DMARC policy published and enforced"
+    description: >
+      A DMARC record must exist for all verified domains with
+      policy set to quarantine or reject. Without DMARC,
+      your domains can be spoofed in phishing attacks.
+    check_type: value
+    severity: critical
+    effort: low
+    graph_endpoint: /domains
+    expected:
+      field: isVerified
+      value: true
+    blast_radius:
+      - "Legitimate email from unauthenticated sources may be quarantined"
+      - "Third-party senders must be added to SPF and DKIM before enforcing"
+      - "Start with policy p=none before moving to quarantine or reject"
+    community_ref: "exchange/dmarc"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/security/office-365-security/email-authentication-dmarc-configure
+
+  - control_id: EXO-03
+    title: "Audit log retention minimum 90 days"
+    description: >
+      Unified audit log must be enabled and retained for at
+      least 90 days. Required for incident investigation,
+      forensics, and regulatory compliance evidence.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Audit log must be enabled and accessible"
+    blast_radius:
+      - "No blast radius — enabling audit log is non-disruptive"
+      - "Storage costs may increase with extended retention"
+    community_ref: "compliance/audit-log"
+    references:
+      - https://learn.microsoft.com/en-us/purview/audit-log-enable-disable
+
+  - control_id: EXO-04
+    title: "Safe Attachments policy covering all domains"
+    description: >
+      Microsoft Defender for Office 365 Safe Attachments must
+      be enabled for all accepted domains. Protects against
+      malware delivered via email attachments.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Safe Attachments policy must exist and cover all domains"
+    blast_radius:
+      - "Email delivery latency increases slightly due to detonation"
+      - "Password-protected attachments bypass scanning"
+      - "Dynamic Delivery reduces user impact during scanning"
+    community_ref: "exchange/safe-attachments"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/security/office-365-security/safe-attachments-about
+
+  - control_id: PURVIEW-01
+    title: "DLP policies active and protecting sensitive data"
+    description: >
+      Data Loss Prevention policies must be active and covering
+      key sensitive information types. Without DLP, sensitive
+      data can be shared externally without detection.
+    check_type: presence
+    severity: high
+    effort: medium
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "At least one DLP policy must be active"
+    blast_radius:
+      - "False positives may block legitimate business communications"
+      - "Users will need training on DLP notifications"
+      - "Start in test mode before enforcing"
+    community_ref: "compliance/dlp"
+    references:
+      - https://learn.microsoft.com/en-us/purview/dlp-learn-about-dlp
+
+  - control_id: PURVIEW-02
+    title: "Sensitivity labels published to users"
+    description: >
+      Microsoft Purview sensitivity labels must be published
+      and available to users. Labels enable classification
+      and protection of sensitive documents and emails.
+    check_type: presence
+    severity: medium
+    effort: medium
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Sensitivity label policy must be published"
+    blast_radius:
+      - "No blast radius — publishing labels is additive"
+      - "Users need training on label usage"
+      - "Auto-labelling policies have higher blast radius"
+    community_ref: "compliance/sensitivity-labels"
+    references:
+      - https://learn.microsoft.com/en-us/purview/sensitivity-labels
+
+  - control_id: PURVIEW-03
+    title: "Retention policies configured for key workloads"
+    description: >
+      Retention policies must exist for Exchange, SharePoint,
+      Teams, and OneDrive. Required for regulatory compliance
+      and legal hold capability.
+    check_type: presence
+    severity: medium
+    effort: medium
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Retention policies must exist for key workloads"
+    blast_radius:
+      - "Content past retention period will be deleted automatically"
+      - "Legal hold must be applied before enabling deletion"
+      - "Review with legal team before configuring retention"
+    community_ref: "compliance/retention"
+    references:
+      - https://learn.microsoft.com/en-us/purview/retention

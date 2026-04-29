@@ -1,0 +1,126 @@
+framework: NIST 800-53 M365 Mapping
+version: "Rev5"
+description: >
+  NIST SP 800-53 Rev 5 controls mapped to Microsoft 365
+  configuration checks. Focused on identity, access control,
+  audit, and system integrity controls.
+
+controls:
+
+  - control_id: NIST-AC-02
+    title: "Account management — privileged accounts reviewed"
+    description: >
+      NIST AC-2 requires formal account management including
+      regular review of privileged accounts. Global Admins
+      and other privileged roles must be reviewed quarterly.
+    check_type: threshold
+    severity: high
+    effort: medium
+    graph_endpoint: /admins
+    expected:
+      max: 5
+    blast_radius:
+      - "Excess privileged accounts must be reviewed with account owners"
+      - "PIM eligible assignments recommended as replacement"
+    community_ref: "identity/pim-roles"
+    references:
+      - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
+
+  - control_id: NIST-AC-17
+    title: "Remote access — MFA required for all remote connections"
+    description: >
+      NIST AC-17 requires protection of remote access sessions.
+      All remote access to M365 services must require MFA
+      via Conditional Access policy.
+    check_type: coverage
+    severity: critical
+    effort: low
+    graph_endpoint: /reports/authenticationMethods/userRegistrationDetails
+    expected:
+      field: isMfaRegistered
+      value: true
+      min_percent: 100
+    blast_radius:
+      - "Users without MFA will be blocked from remote access"
+      - "Service accounts need app-based authentication"
+    community_ref: "identity/mfa-registration"
+    references:
+      - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
+
+  - control_id: NIST-AU-02
+    title: "Audit events — unified audit log enabled"
+    description: >
+      NIST AU-2 requires audit logging of security-relevant
+      events. The Microsoft 365 unified audit log must be
+      enabled and capturing events across all workloads.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Unified audit log must be enabled"
+    blast_radius:
+      - "No blast radius — enabling audit log is non-disruptive"
+    community_ref: "compliance/audit-log"
+    references:
+      - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
+
+  - control_id: NIST-CM-06
+    title: "Configuration settings — security baseline enforced"
+    description: >
+      NIST CM-6 requires documented and enforced configuration
+      settings. Microsoft security baselines must be deployed
+      via Intune for all managed devices and applications.
+    check_type: presence
+    severity: high
+    effort: medium
+    graph_endpoint: /deviceManagement/deviceConfigurations
+    expected:
+      _note: "Security baseline configuration profiles must exist"
+    blast_radius:
+      - "Baseline settings may override existing device configurations"
+      - "Test on pilot group before broad deployment"
+    community_ref: "intune/device-compliance"
+    references:
+      - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
+
+  - control_id: NIST-IA-05
+    title: "Authenticator management — password policies enforced"
+    description: >
+      NIST IA-5 requires authenticator management including
+      password policies. Cloud-only accounts should have
+      passwords set to never expire combined with strong MFA.
+    check_type: value
+    severity: medium
+    effort: low
+    graph_endpoint: /domains
+    expected:
+      field: passwordValidityPeriodInDays
+      value: 2147483647
+    blast_radius:
+      - "Users approaching password expiry will no longer be prompted"
+      - "On-premises synced accounts not affected"
+    community_ref: "identity/password-policy"
+    references:
+      - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home
+
+  - control_id: NIST-SC-28
+    title: "Protection of information at rest — encryption enforced"
+    description: >
+      NIST SC-28 requires protection of information at rest.
+      All managed devices must have encryption enabled and
+      SharePoint and OneDrive data encryption must be verified.
+    check_type: coverage
+    severity: high
+    effort: medium
+    graph_endpoint: /deviceManagement/managedDevices
+    expected:
+      field: isEncrypted
+      value: true
+      min_percent: 95
+    blast_radius:
+      - "Devices without TPM may not support required encryption"
+      - "Encryption process requires device restart"
+    community_ref: "intune/bitlocker"
+    references:
+      - https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_0/home

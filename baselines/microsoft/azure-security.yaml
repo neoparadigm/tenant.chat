@@ -1,0 +1,197 @@
+framework: Microsoft Azure Security Baseline
+version: "2024"
+description: >
+  Azure security baseline covering Entra ID tenant configuration,
+  Azure AD security defaults, Copilot for Microsoft 365,
+  and cross-workload identity controls.
+
+controls:
+
+  - control_id: AZURE-01
+    title: "Break glass emergency access accounts configured"
+    description: >
+      At least two break glass emergency access accounts must
+      exist and be excluded from all Conditional Access policies.
+      Without break glass accounts a CA misconfiguration can
+      lock all administrators out of the tenant.
+    check_type: threshold
+    severity: critical
+    effort: low
+    graph_endpoint: /users
+    expected:
+      min: 2
+      _note: "Look for accounts with Emergency or BreakGlass in displayName"
+    blast_radius:
+      - "No blast radius — break glass accounts are additive"
+      - "Accounts must be excluded from MFA and CA policies"
+      - "Passwords must be stored securely offline"
+    community_ref: "identity/break-glass"
+    references:
+      - https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/security-emergency-access
+
+  - control_id: AZURE-02
+    title: "Service principal secret expiry within 90 days"
+    description: >
+      Application and service principal credentials must not
+      have expiry dates beyond 90 days. Long-lived credentials
+      increase the window of exposure if compromised.
+    check_type: staleness
+    severity: high
+    effort: medium
+    graph_endpoint: /servicePrincipals
+    expected:
+      field: passwordCredentials
+      threshold_days: 90
+    blast_radius:
+      - "Applications using expiring credentials will break when rotated"
+      - "Automated rotation must be in place before shortening expiry"
+      - "Coordinate with application owners before rotating"
+    community_ref: "identity/service-principals"
+    references:
+      - https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/howto-create-service-principal-portal
+
+  - control_id: AZURE-03
+    title: "Guest user access restrictions configured"
+    description: >
+      Guest users must have restricted access to the Entra ID
+      directory. Default guest permissions allow enumeration
+      of users groups and other tenant objects.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /policies/authenticationMethodsPolicy
+    expected:
+      _note: "Guest user access level must be restricted"
+    blast_radius:
+      - "Guests currently relying on directory enumeration will be affected"
+      - "External collaboration scenarios need review before restricting"
+      - "Guest access reviews must be configured alongside restriction"
+    community_ref: "identity/guest-users"
+    references:
+      - https://learn.microsoft.com/en-us/entra/external-id/external-collaboration-settings-configure
+
+  - control_id: AZURE-04
+    title: "Privileged Identity Management configured for admin roles"
+    description: >
+      Entra PIM must be configured for all privileged roles.
+      Permanent role assignments increase attack surface.
+      Just-in-time activation with approval workflow required.
+    check_type: threshold
+    severity: critical
+    effort: medium
+    graph_endpoint: /admins
+    expected:
+      max: 2
+      _note: "Permanent Global Admins should be break glass only"
+    blast_radius:
+      - "Admins must activate roles before performing privileged tasks"
+      - "Automated scripts using permanent admin accounts will fail"
+      - "Approval workflows must be configured before converting accounts"
+    community_ref: "identity/pim-roles"
+    references:
+      - https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-configure
+
+  - control_id: AZURE-05
+    title: "App consent policy restricts user consent"
+    description: >
+      Users must not be allowed to consent to OAuth applications
+      requesting permissions without admin approval. Unrestricted
+      user consent is a primary OAuth phishing attack vector.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /policies/authenticationMethodsPolicy
+    expected:
+      _note: "User consent must be disabled or restricted to verified publishers"
+    blast_radius:
+      - "Users will no longer be able to consent to new apps independently"
+      - "Admin consent workflow must be configured and communicated"
+      - "Existing consented apps are not affected"
+    community_ref: "identity/app-consent"
+    references:
+      - https://learn.microsoft.com/en-us/entra/identity/enterprise-apps/configure-user-consent
+
+  - control_id: COPILOT-01
+    title: "Copilot for Microsoft 365 oversharing controls configured"
+    description: >
+      Microsoft 365 Copilot surfaces data from SharePoint,
+      OneDrive, and Teams. Without oversharing controls,
+      Copilot can expose sensitive data to users who should
+      not have access. SharePoint access controls and
+      sensitivity labels must be reviewed before enabling Copilot.
+    check_type: presence
+    severity: high
+    effort: high
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "SharePoint sharing settings must be reviewed for Copilot readiness"
+    blast_radius:
+      - "Copilot may surface documents users technically have access to but should not see"
+      - "Broad sharing links must be reviewed and restricted before enabling"
+      - "Sensitivity labels must be applied to restrict Copilot responses"
+      - "Guest access to SharePoint sites must be reviewed"
+    community_ref: "copilot/oversharing"
+    references:
+      - https://learn.microsoft.com/en-us/copilot/microsoft-365/microsoft-365-copilot-privacy
+      - https://learn.microsoft.com/en-us/sharepoint/sharepoint-copilot-best-practices
+
+  - control_id: COPILOT-02
+    title: "Copilot interaction data retention policy configured"
+    description: >
+      Copilot for Microsoft 365 interaction data including
+      prompts and responses must have a retention policy
+      configured. Required for compliance and eDiscovery.
+    check_type: presence
+    severity: medium
+    effort: medium
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Retention policy must cover Copilot interaction data"
+    blast_radius:
+      - "No blast radius — retention policy is additive"
+      - "Legal and compliance team must approve retention period"
+    community_ref: "copilot/retention"
+    references:
+      - https://learn.microsoft.com/en-us/purview/retention-policies-copilot
+
+  - control_id: AVD-01
+    title: "Azure Virtual Desktop session host compliance enforced"
+    description: >
+      AVD session hosts must be enrolled in Intune and meet
+      compliance policy requirements. Non-compliant session
+      hosts represent an unmanaged attack surface.
+    check_type: coverage
+    severity: high
+    effort: medium
+    graph_endpoint: /deviceManagement/managedDevices
+    expected:
+      field: complianceState
+      value: compliant
+      min_percent: 95
+    blast_radius:
+      - "Non-compliant session hosts will be blocked from CA policies"
+      - "Users on non-compliant hosts will lose AVD access"
+      - "Grace period must be configured before enforcing"
+    community_ref: "avd/session-host-compliance"
+    references:
+      - https://learn.microsoft.com/en-us/azure/virtual-desktop/set-up-intune
+
+  - control_id: AVD-02
+    title: "AVD host pool not accessible without MFA"
+    description: >
+      Azure Virtual Desktop host pools must be protected by
+      Conditional Access requiring MFA. Direct RDP access
+      bypassing CA is a common attack vector against AVD.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      _note: "CA policy must target Azure Virtual Desktop app"
+    blast_radius:
+      - "Users without MFA registered will lose AVD access immediately"
+      - "Break glass accounts must be excluded"
+      - "Service accounts used for AVD automation need separate handling"
+    community_ref: "avd/mfa-requirement"
+    references:
+      - https://learn.microsoft.com/en-us/azure/virtual-desktop/set-up-mfa

@@ -1,103 +1,20 @@
 framework: Microsoft Baseline Security Mode
-version: "1.0"
+version: "2024"
 description: >
-  Microsoft's recommended security baseline covering M365 and Entra.
-  Available in M365 Admin Centre under Org Settings > Security & Privacy.
+  Microsoft Baseline Security Mode covers the minimum security
+  configuration requirements for Microsoft 365 tenants.
+  Identity controls are owned by the Entra Identity baseline.
+  This file covers device, data, and collaboration controls.
 
 controls:
-
-  - control_id: BSM-AUTH-01
-    title: "Legacy authentication blocked"
-    description: >
-      Legacy authentication protocols do not support MFA.
-      Blocking legacy auth eliminates the primary password spray
-      and credential stuffing attack vector.
-    check_type: presence
-    severity: critical
-    effort: low
-    graph_endpoint: /identity/conditionalAccess/policies
-    expected:
-      state: enabled
-      conditions.clientAppTypes: [exchangeActiveSync, other]
-      grantControls.builtInControls: [block]
-    blast_radius:
-      - "Exchange ActiveSync devices using basic auth"
-      - "IMAP and POP email clients"
-      - "Older Outlook versions pre-2013"
-      - "Applications using basic auth to Exchange"
-      - "Printers scanning to email via SMTP AUTH"
-    community_ref: "identity/legacy-auth"
-    references:
-      - https://learn.microsoft.com/en-us/azure/active-directory/conditional-access/block-legacy-authentication
-
-  - control_id: BSM-AUTH-02
-    title: "MFA required for all users"
-    description: >
-      Multi-factor authentication must be required for all users
-      via Conditional Access policy. Per-user MFA is deprecated.
-    check_type: coverage
-    severity: critical
-    effort: low
-    graph_endpoint: /reports/authenticationMethods/userRegistrationDetails
-    expected:
-      field: isMfaRegistered
-      value: true
-      min_percent: 95
-    blast_radius:
-      - "Users who have not registered MFA will be blocked"
-      - "Shared mailboxes need exclusion or automation account"
-      - "Break glass accounts must be excluded from CA policy"
-      - "Service accounts need separate handling"
-    community_ref: "identity/mfa-registration"
-    references:
-      - https://learn.microsoft.com/en-us/azure/active-directory/authentication/concept-mfa-howitworks
-
-  - control_id: BSM-PRIV-01
-    title: "No more than 5 permanent Global Admins"
-    description: >
-      Global Administrator is the most privileged role in Entra ID.
-      Permanent assignments increase the attack surface significantly.
-      PIM eligible assignments should be used instead.
-    check_type: threshold
-    severity: critical
-    effort: medium
-    graph_endpoint: /admins
-    expected:
-      max: 5
-    blast_radius:
-      - "Admins will need to activate PIM roles to perform admin tasks"
-      - "Emergency access break glass accounts must be excluded"
-      - "Helpdesk workflows using Global Admin need updating"
-    community_ref: "identity/pim-roles"
-    references:
-      - https://learn.microsoft.com/en-us/azure/active-directory/roles/best-practices
-
-  - control_id: BSM-AUTH-03
-    title: "High risk sign-ins blocked by Conditional Access"
-    description: >
-      Microsoft Entra ID Protection identifies high-risk sign-in events.
-      A CA policy must block or require MFA for high risk sign-ins.
-    check_type: presence
-    severity: high
-    effort: low
-    graph_endpoint: /identity/conditionalAccess/policies
-    expected:
-      state: enabled
-      conditions.signInRiskLevels: [high]
-    blast_radius:
-      - "Legitimate users flagged as high risk will be blocked"
-      - "Requires Entra ID P2 licence"
-      - "Break glass accounts must be excluded"
-    community_ref: "identity/risk-policies"
-    references:
-      - https://learn.microsoft.com/en-us/azure/active-directory/identity-protection/howto-identity-protection-configure-risk-policies
 
   - control_id: BSM-DEVICE-01
     title: "Compliant device required for cloud app access"
     description: >
-      Conditional Access policy must require compliant Intune-managed
-      devices for access to cloud applications. Prevents unmanaged
-      device access to corporate data.
+      A Conditional Access policy must require compliant Intune-enrolled
+      devices for all cloud application access. Prevents unmanaged
+      devices from accessing corporate data without meeting minimum
+      security standards.
     check_type: presence
     severity: high
     effort: medium
@@ -106,10 +23,150 @@ controls:
       state: enabled
       grantControls.builtInControls: [compliantDevice]
     blast_radius:
-      - "Personal and unmanaged devices will lose access"
-      - "BYOD users will be blocked until enrolled"
-      - "Guest users need separate policy exclusion"
-      - "Mobile devices need Intune enrolment completed first"
+      - "Personal and BYOD devices will immediately lose access"
+      - "Unmanaged devices used for admin tasks will be blocked"
+      - "Guest users on unmanaged devices will lose access"
     community_ref: "intune/device-compliance"
     references:
       - https://learn.microsoft.com/en-us/azure/active-directory/conditional-access/howto-conditional-access-policy-compliant-device
+
+  - control_id: BSM-COLLAB-01
+    title: "External Teams meetings require lobby"
+    description: >
+      Microsoft Teams meeting policies must require external
+      participants to wait in the lobby before admission.
+      Unrestricted external meeting join allows uninvited
+      participants to join sensitive business meetings.
+    check_type: presence
+    severity: medium
+    effort: low
+    graph_endpoint: /teamwork
+    expected:
+      _note: "Teams meeting policy must require lobby for external users"
+    blast_radius:
+      - "External participants will need host admission before joining"
+      - "Automated meeting join workflows may break"
+    community_ref: "teams/meeting-policy"
+    references:
+      - https://learn.microsoft.com/en-us/microsoftteams/meeting-policies-participants-and-guests
+
+  - control_id: BSM-COLLAB-02
+    title: "Anonymous Teams meeting join disabled"
+    description: >
+      Anonymous users must not be allowed to join Teams meetings
+      without being admitted by a meeting organiser. Anonymous
+      join bypasses identity verification entirely.
+    check_type: presence
+    severity: medium
+    effort: low
+    graph_endpoint: /teamwork
+    expected:
+      _note: "Teams policy must disable anonymous join"
+    blast_radius:
+      - "Anonymous dial-in users will need to authenticate"
+      - "Public webinar-style meetings need reconfiguration"
+    community_ref: "teams/meeting-policy"
+    references:
+      - https://learn.microsoft.com/en-us/microsoftteams/meeting-settings-in-teams
+
+  - control_id: BSM-SHARE-01
+    title: "SharePoint external sharing restricted"
+    description: >
+      SharePoint external sharing must be restricted to specific
+      domains or disabled. Unrestricted sharing allows any user
+      to share corporate documents with any external email address
+      without oversight.
+    check_type: value
+    severity: high
+    effort: medium
+    graph_endpoint: /sites
+    expected:
+      field: sharingCapability
+      value: ExistingExternalUserSharingOnly
+    blast_radius:
+      - "Users sharing with arbitrary external addresses will be blocked"
+      - "Anonymous sharing links will be disabled"
+      - "Business processes relying on open sharing need updating"
+    community_ref: "sharepoint/external-sharing"
+    references:
+      - https://learn.microsoft.com/en-us/sharepoint/turn-external-sharing-on-or-off
+
+  - control_id: BSM-SHARE-02
+    title: "OneDrive external sharing restricted"
+    description: >
+      OneDrive sharing settings must match SharePoint sharing
+      restrictions. By default OneDrive may allow more permissive
+      sharing than SharePoint creating a bypass vector for
+      data exfiltration.
+    check_type: value
+    severity: high
+    effort: low
+    graph_endpoint: /sites
+    expected:
+      field: sharingCapability
+      value: ExistingExternalUserSharingOnly
+    blast_radius:
+      - "Users sharing files via OneDrive with anonymous links will be blocked"
+      - "Business processes using OneDrive sharing need review"
+    community_ref: "sharepoint/external-sharing"
+    references:
+      - https://learn.microsoft.com/en-us/onedrive/manage-sharing
+
+  - control_id: BSM-MAIL-01
+    title: "Safe Links policy enabled for all users"
+    description: >
+      Microsoft Defender for Office 365 Safe Links must be enabled
+      covering all users. Safe Links rewrites URLs in email and
+      Office documents providing time-of-click protection against
+      malicious links including delayed weaponisation.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Safe Links policy must exist and cover all domains"
+    blast_radius:
+      - "Email delivery latency increases slightly"
+      - "Some URL-based workflows may need safe links exclusions"
+    community_ref: "exchange/safe-links"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/security/office-365-security/safe-links-about
+
+  - control_id: BSM-MAIL-02
+    title: "Anti-phishing policy configured with impersonation protection"
+    description: >
+      An anti-phishing policy must be configured with impersonation
+      protection enabled for key users and domains. Impersonation
+      attacks targeting executives and finance teams are the
+      primary business email compromise vector.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Anti-phishing policy must exist with impersonation protection"
+    blast_radius:
+      - "Legitimate email from external senders may be flagged initially"
+      - "Key user and domain lists must be maintained"
+    community_ref: "exchange/anti-phishing"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/security/office-365-security/anti-phishing-policies-about
+
+  - control_id: BSM-AUDIT-01
+    title: "Microsoft 365 unified audit log enabled"
+    description: >
+      The Microsoft 365 unified audit log must be enabled across
+      all workloads. Without audit logging there is no forensic
+      trail for incident investigation and no ability to detect
+      insider threats or account compromise.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: "Unified audit log must be enabled and accessible"
+    blast_radius:
+      - "No blast radius — enabling audit log is non-disruptive"
+    community_ref: "compliance/audit-log"
+    references:
+      - https://learn.microsoft.com/en-us/purview/audit-log-enable-disable
