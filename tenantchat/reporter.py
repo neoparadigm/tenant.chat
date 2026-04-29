@@ -896,7 +896,7 @@ Write a JSON response with these exact keys:
   "explanation": "2 sentences max. Plain English. What this means for the organisation. No jargon.",
   "risk_context": "1 sentence. Why this matters from a threat perspective.",
   "fix_summary": "1 sentence. The safest way to fix this.",
-  "confidence": "A percentage like 87% representing community confidence in this recommendation."
+  "confidence": "A percentage like 87% representing confidence in this recommendation."
 }}
 
 Respond ONLY with valid JSON. No other text."""
@@ -1162,7 +1162,7 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
 
     <!-- AI ANALYSIS SECTION -->
     <div class="ai-section">
-      <div class="ai-section-title">🤖 AI Analysis — Powered by Gemma 4</div>
+      <div class="ai-section-title">🤖 AI Analysis</div>
 
       <div class="ai-row">
         <div class="ai-icon">💬</div>
@@ -1204,7 +1204,7 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
       <div class="ai-row">
         <div class="ai-icon">📚</div>
         <div class="ai-content">
-          <span class="ai-label">Community context: </span>
+          <span class="ai-label">Context: </span>
           <div class="community-cite">{{ f.community_ref }}</div>
         </div>
       </div>
@@ -1220,7 +1220,7 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
 
       {% if f.confidence %}
       <div style="margin-top:8px">
-        <span class="confidence-badge">✓ {{ f.confidence }} community confidence</span>
+        <span class="confidence-badge">✓ {{ f.confidence }} confidence</span>
       </div>
       {% endif %}
 
@@ -1250,7 +1250,7 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
     <div class="finding-delta">{{ f.delta }}</div>
     {% endif %}
     <div class="ai-section">
-      <div class="ai-section-title">🤖 AI Analysis — Powered by Gemma 4</div>
+      <div class="ai-section-title">🤖 AI Analysis</div>
       <div class="ai-row">
         <div class="ai-icon">💬</div>
         <div class="ai-content">
