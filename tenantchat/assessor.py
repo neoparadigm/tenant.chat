@@ -102,9 +102,17 @@ class Assessor:
             findings.append(result)
 
         # Calculate posture score
+        # PASS=1.0, PARTIAL=0.5, UNKNOWN=0.3, FAIL=0.0
         total    = len(findings)
+        weighted = sum(
+            1.0 if f.status == CheckStatus.PASS else
+            0.5 if f.status == CheckStatus.PARTIAL else
+            0.1 if f.status == CheckStatus.UNKNOWN else
+            0.0
+            for f in findings
+        )
         passing  = sum(1 for f in findings if f.status == CheckStatus.PASS)
-        score    = round((passing / total * 100), 1) if total else 0.0
+        score    = round((weighted / total * 100), 1) if total else 0.0
 
         # Count by severity
         critical = sum(
