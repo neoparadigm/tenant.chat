@@ -172,7 +172,8 @@ body {
 .findings-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 11px;
+  table-layout: fixed;
 }
 
 .findings-table th {
@@ -505,7 +506,21 @@ def _framework_radar(framework_scores: dict[str, float]) -> str:
     if len(framework_scores) < 2:
         return ""
 
-    categories = list(framework_scores.keys())
+    # Shorten labels for radar readability
+    label_map = {
+        "Entra Identity Security Baseline": "Entra ID",
+        "Intune Security Baseline":         "Intune",
+        "Exchange and Purview Security Baseline": "Exchange",
+        "Azure Security Baseline":          "Azure",
+        "Baseline Security Mode":           "BSM",
+        "Zero Trust RaMP":                  "ZT RaMP",
+        "800-53 M365 Mapping":              "NIST",
+        "Microsoft 365 v3.1":               "CIS",
+    }
+    categories = [
+        next((v for k, v in label_map.items() if k in fw), fw[:10])
+        for fw in framework_scores.keys()
+    ]
     values     = [round(v, 1) for v in framework_scores.values()]
     categories_closed = categories + [categories[0]]
     values_closed     = values + [values[0]]
@@ -522,8 +537,8 @@ def _framework_radar(framework_scores: dict[str, float]) -> str:
         hovertemplate="<b>%{theta}</b><br>%{r:.1f}%<extra></extra>",
     ))
     fig.update_layout(
-        height=300,
-        margin=dict(l=60, r=60, t=30, b=30),
+        height=320,
+        margin=dict(l=80, r=80, t=40, b=40),
         paper_bgcolor="white",
         polar=dict(
             bgcolor="white",
@@ -618,14 +633,17 @@ def _effort_scatter(findings: list) -> str:
 
     # Quadrant background — quick wins
     fig.add_shape(type="rect", x0=0.5, y0=2.5, x1=1.5, y1=4.5,
-                  fillcolor="rgba(16,124,16,0.06)", line=dict(width=0))
-    fig.add_annotation(x=1.0, y=4.3, text="Quick Wins",
-                       font=dict(size=9, color=C_GREEN), showarrow=False)
+                  fillcolor="rgba(16,124,16,0.08)",
+                  line=dict(color="rgba(16,124,16,0.3)", width=1, dash="dot"))
+    fig.add_annotation(x=1.0, y=4.45, text="Quick Wins",
+                       font=dict(size=9, color=C_GREEN, family="Segoe UI"),
+                       showarrow=False, bgcolor="white",
+                       borderpad=2)
 
     fig.add_trace(go.Scatter(
         x=x, y=y, mode="markers",
-        marker=dict(color=colors, size=sizes, line=dict(color="white", width=1.5),
-                    opacity=0.85),
+        marker=dict(color=colors, size=[min(s, 18) for s in sizes],
+                    line=dict(color="white", width=1.5), opacity=0.75),
         text=[f.control_id for f in failing],
         customdata=texts,
         hovertemplate="<b>%{customdata}</b><extra></extra>",
@@ -635,18 +653,20 @@ def _effort_scatter(findings: list) -> str:
         height=300,
         margin=dict(l=40, r=20, t=20, b=40),
         paper_bgcolor="white",
-        plot_bgcolor="white",
+        plot_bgcolor="#fafafa",
         xaxis=dict(
             tickvals=[1, 2, 3], ticktext=["Low", "Medium", "High"],
             title=dict(text="Effort to Fix", font=dict(size=11, color=C_TEXT_MUTED)),
             range=[0.5, 3.5], gridcolor=C_BORDER, linecolor=C_BORDER,
             tickfont=dict(size=10, color=C_TEXT_MUTED),
+            showgrid=True, zeroline=False,
         ),
         yaxis=dict(
             tickvals=[1, 2, 3, 4], ticktext=["Low", "Medium", "High", "Critical"],
             title=dict(text="Security Impact", font=dict(size=11, color=C_TEXT_MUTED)),
             range=[0.5, 4.5], gridcolor=C_BORDER, linecolor=C_BORDER,
             tickfont=dict(size=10, color=C_TEXT_MUTED),
+            showgrid=True, zeroline=False,
         ),
         showlegend=False,
     )
@@ -1284,23 +1304,22 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
   <table class="findings-table">
     <thead>
       <tr>
-        <th style="width:100px">Control</th>
-        <th>Finding</th>
-        <th style="width:80px">Framework</th>
-        <th style="width:70px">Status</th>
-        <th style="width:70px">Severity</th>
-        <th style="width:100px">Drift</th>
-        <th style="width:60px">Effort</th>
+        <th style="width:95px;white-space:nowrap">Control</th>
+        <th style="min-width:160px">Finding</th>
+        <th style="width:70px">Framework</th>
+        <th style="width:55px">Status</th>
+        <th style="width:65px">Severity</th>
+        <th style="width:55px;white-space:nowrap">Effort</th>
       </tr>
     </thead>
     <tbody>
       {% for f in all_findings %}
       <tr>
-        <td style="font-family:Consolas,monospace; font-size:11px; color:#605e5c">{{ f.control_id }}</td>
+        <td style="font-family:Consolas,monospace; font-size:10px; color:#605e5c; white-space:nowrap">{{ f.control_id }}</td>
         <td>
           <div style="font-weight:500; color:#323130">{{ f.title }}</div>
           {% if f.delta %}
-          <div style="font-size:11px; color:#605e5c; margin-top:2px">{{ f.delta[:80] }}{% if f.delta|length > 80 %}...{% endif %}</div>
+          <div style="font-size:10px; color:#605e5c; margin-top:2px">{{ f.delta[:60] }}{% if f.delta|length > 60 %}...{% endif %}</div>
           {% endif %}
         </td>
         <td style="font-size:11px; color:#605e5c">{{ f.framework_short }}</td>
@@ -1314,15 +1333,7 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
             {{ f.severity }}
           </span>
         </td>
-        <td>
-          <div class="drift-bar-wrap">
-            <div class="drift-bar-mini">
-              <div class="drift-fill-mini" style="width:{{ f.drift_pct }}%; background:{{ f.drift_color }}"></div>
-            </div>
-            <span style="font-size:10px; color:#605e5c">{{ f.drift_pct }}%</span>
-          </div>
-        </td>
-        <td style="font-size:11px; color:#605e5c">{{ f.effort }}</td>
+        <td style="font-size:10px; color:#605e5c; white-space:nowrap; text-align:center">{{ f.effort }}</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -1361,7 +1372,7 @@ class Reporter:
             )
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            return pool.submit(_run).result(timeout=300)
+            return pool.submit(_run).result(timeout=600)
 
     async def _generate_async(
         self,
@@ -1430,7 +1441,16 @@ class Reporter:
         critical_findings_data = []
         high_findings_data     = []
 
-        for f in result.findings:
+        # Limit AI analysis to top 5 critical + top 5 high — performance
+        critical_fails = [f for f in result.findings
+                         if f.status == CheckStatus.FAIL
+                         and f.severity == Severity.CRITICAL][:5]
+        high_fails     = [f for f in result.findings
+                         if f.status == CheckStatus.FAIL
+                         and f.severity == Severity.HIGH][:5]
+        ai_findings    = critical_fails + high_fails
+
+        for f in ai_findings:
             if f.status != CheckStatus.FAIL:
                 continue
             if f.severity not in (Severity.CRITICAL, Severity.HIGH):
@@ -1487,7 +1507,18 @@ class Reporter:
             all_findings_data.append({
                 "control_id":      f.control_id,
                 "title":           f.title,
-                "framework_short": f.framework.replace("Microsoft ", "").replace(" v3.1", "")[:12],
+                "framework_short": (
+                    f.framework
+                    .replace("Microsoft ", "")
+                    .replace("Security Baseline", "")
+                    .replace("Security Mode", "BSM")
+                    .replace(" v3.1", "")
+                    .replace("800-53 M365 Mapping", "NIST")
+                    .replace("Zero Trust RaMP", "ZT RaMP")
+                    .replace("Entra Identity", "Entra")
+                    .replace("Exchange and Purview", "Exch/Purview")
+                    .strip()[:14]
+                ),
                 "status":          f.status.value.upper(),
                 "status_color":    status_colors.get(f.status, C_GREY),
                 "severity":        f.severity.value.upper(),
