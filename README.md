@@ -4,9 +4,6 @@
 
 
 
-<img width="1872" height="1052" alt="image" src="https://github.com/user-attachments/assets/418251f8-6353-4a73-870a-a4013feaf5af" />
-
-
 ## Install
 
 # tenant.chat
