@@ -4,32 +4,6 @@
 
 
 
-> Local-first conversational AI agent for Microsoft tenant intelligence
-
-Connect to your tenant. Assess against every major security baseline. 
-Understand what drifted, why it matters, and what breaks before you fix it.
-All on your own hardware. Nothing leaves your machine.
-
----
-
-## What it does
-
-- Assesses your Microsoft tenant against Microsoft BSM, CIS, Zero Trust RaMP
-- Detects configuration drift - not just pass/fail, exact deltas
-- Models **blast radius** before any change - your specific affected objects
-- Segments users into actionable risk clusters via K-means
-- Explains every finding in plain English with community context
-- Generates board-ready PDF reports
-- Remembers decisions across sessions
-
-## What makes it different
-
-Most community tools wrap PowerShell plus an HTML report without much explanation.
-No conversation. No blast radius. No memory.
-
-tenant.chat is a local AI agent that understands your specific tenant.
-
-
 <img width="1872" height="1052" alt="image" src="https://github.com/user-attachments/assets/418251f8-6353-4a73-870a-a4013feaf5af" />
 
 
