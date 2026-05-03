@@ -130,7 +130,7 @@ tenantchat report --type exec     Generate executive PDF report
 tenantchat report --type technical  Generate technical PDF report
 tenantchat report --type audit      Generate audit/compliance PDF report
 
-## Quick Commands
+## Quick UI Commands
 /assess , /report executive , /report technical , /report audit
 
 ## AI stack
