@@ -35,11 +35,10 @@ tenant.chat is a local AI agent that understands your specific tenant.
 
 ## Install
 
-cat > ~/tenantchat/README.md << 'EOF'
 # tenant.chat
 
-> Local-first conversational AI agent for Microsoft 365 security assessment.  
-> Assess your tenant. Understand what drifted. Know what breaks before you fix it.  
+> Local-first conversational AI agent for Microsoft tenant intelligence. 
+> Assess your tenant. Understand what drifted. Know what breaks before you fix it. Comply with yearly audit cycles and STOP manually inspecting your tenant.
 > Runs on your hardware. Nothing leaves your machine.
 
 ---
