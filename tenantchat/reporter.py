@@ -43,132 +43,175 @@ SEVERITY_COLORS = {
 
 # ── Page CSS ──────────────────────────────────────────────────────────────────
 PAGE_CSS = """
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
-  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #f3f2f1;
-  color: #323130;
-  font-size: 14px;
-  line-height: 1.5;
-  padding: 24px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #f4f5f7;
+  color: #1a1d23;
+  font-size: 13px;
+  line-height: 1.55;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* ── PAGE HEADER ─────────────────────────────────────────────────────── */
 .page-header {
-  background: #0078d4;
+  background: linear-gradient(135deg, #0f1923 0%, #1a2d42 100%);
   color: white;
-  padding: 32px 40px;
-  margin: -24px -24px 24px -24px;
+  padding: 36px 48px 32px;
+  margin-bottom: 32px;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
+  border-bottom: 3px solid #0078d4;
 }
 
 .page-header h1 {
-  font-size: 28px;
-  font-weight: 600;
-  letter-spacing: -0.5px;
-  margin-bottom: 4px;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+  margin-bottom: 6px;
+  color: #ffffff;
 }
 
 .page-header .subtitle {
-  font-size: 14px;
-  opacity: 0.85;
+  font-size: 12px;
+  opacity: 0.6;
+  font-weight: 400;
+  letter-spacing: 0.2px;
+  max-width: 520px;
+  line-height: 1.4;
 }
 
 .page-header .meta {
   text-align: right;
-  font-size: 13px;
-  opacity: 0.85;
+  font-size: 11px;
+  opacity: 0.6;
+  line-height: 1.8;
+}
+
+.header-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #0078d4;
+  background: rgba(0,120,212,0.15);
+  border: 1px solid rgba(0,120,212,0.3);
+  padding: 3px 8px;
+  border-radius: 3px;
+  margin-bottom: 10px;
+}
+
+/* ── LAYOUT ──────────────────────────────────────────────────────────── */
+.content-wrap {
+  padding: 0 48px 48px;
 }
 
 .section-title {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1.5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.8px;
   text-transform: uppercase;
-  color: #605e5c;
-  margin: 28px 0 12px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid #edebe9;
-}
-
-.card-grid {
-  display: grid;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.card-grid-2 { grid-template-columns: 1fr 1fr; }
-.card-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
-.card-grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
-.card-grid-1 { grid-template-columns: 1fr; }
-
-.card {
-  background: #ffffff;
-  border-radius: 2px;
-  box-shadow: 0 1.6px 3.6px rgba(0,0,0,0.132), 0 0.3px 0.9px rgba(0,0,0,0.108);
-  padding: 20px;
-  position: relative;
-}
-
-.card-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: #323130;
-  margin-bottom: 4px;
+  color: #6b7280;
+  margin: 32px 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
+.section-title::before {
+  content: '';
+  display: inline-block;
+  width: 3px;
+  height: 12px;
+  background: #0078d4;
+  border-radius: 2px;
+}
+
+.card-grid { display: grid; gap: 16px; margin-bottom: 16px; }
+.card-grid-2 { grid-template-columns: 1fr 1fr; }
+.card-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+.card-grid-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.card-grid-1 { grid-template-columns: 1fr; }
+
+/* ── CARDS ───────────────────────────────────────────────────────────── */
+.card {
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  padding: 20px;
+  position: relative;
+}
+
+.card-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: -0.1px;
+}
+
 .card-caption {
   font-size: 11px;
-  color: #605e5c;
+  color: #9ca3af;
   margin-top: 10px;
   line-height: 1.4;
 }
 
+/* ── METRIC CARDS ────────────────────────────────────────────────────── */
 .metric-card {
   text-align: center;
-  padding: 20px 16px;
+  padding: 24px 16px;
 }
 
 .metric-value {
-  font-size: 42px;
-  font-weight: 700;
+  font-size: 44px;
+  font-weight: 800;
   line-height: 1;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -2px;
 }
 
 .metric-label {
-  font-size: 11px;
-  color: #605e5c;
+  font-size: 10px;
+  color: #9ca3af;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1.2px;
+  font-weight: 600;
 }
 
 .metric-delta {
   font-size: 11px;
-  margin-top: 4px;
+  margin-top: 6px;
+  font-weight: 500;
 }
 
 .progress-bar {
-  height: 4px;
-  background: #edebe9;
+  height: 3px;
+  background: #f3f4f6;
   border-radius: 2px;
-  margin-top: 8px;
+  margin-top: 10px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
   border-radius: 2px;
-  transition: width 0.6s ease;
 }
 
-/* Findings table */
+/* ── FINDINGS TABLE ──────────────────────────────────────────────────── */
 .findings-table {
   width: 100%;
   border-collapse: collapse;
@@ -178,66 +221,54 @@ body {
 
 .findings-table th {
   text-align: left;
-  padding: 8px 12px;
-  background: #faf9f8;
-  border-bottom: 2px solid #edebe9;
-  font-size: 10px;
-  letter-spacing: 1px;
+  padding: 8px 10px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  border-top: 1px solid #e5e7eb;
+  font-size: 9px;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
-  color: #605e5c;
-  font-weight: 600;
+  color: #9ca3af;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .findings-table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid #f3f2f1;
-  vertical-align: top;
+  padding: 9px 10px;
+  border-bottom: 1px solid #f3f4f6;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.findings-table tr:hover td { background: #faf9f8; }
+.findings-table tr:hover td { background: #f9fafb; }
+.findings-table tbody tr:last-child td { border-bottom: none; }
 
 .severity-pill {
   display: inline-block;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.4px;
   color: white;
+  white-space: nowrap;
 }
 
-.drift-bar-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.drift-bar-mini {
-  width: 60px;
-  height: 4px;
-  background: #edebe9;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.drift-fill-mini {
-  height: 100%;
-  border-radius: 2px;
-}
-
-/* AI differentiator */
+/* ── AI ANALYSIS ─────────────────────────────────────────────────────── */
 .ai-section {
-  background: #f0f6ff;
-  border: 1px solid #cce0f5;
-  border-left: 4px solid #0078d4;
+  background: #f8faff;
+  border: 1px solid #dbeafe;
+  border-left: 3px solid #0078d4;
   padding: 14px 16px;
-  margin-top: 10px;
+  margin-top: 12px;
   font-size: 12px;
+  border-radius: 0 6px 6px 0;
 }
 
 .ai-section-title {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: 1.5px;
   text-transform: uppercase;
@@ -247,34 +278,32 @@ body {
 
 .ai-row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   margin-bottom: 8px;
   align-items: flex-start;
+  line-height: 1.5;
 }
 
-.ai-icon {
-  flex-shrink: 0;
-  width: 16px;
-  font-size: 12px;
-}
-
-.ai-content { color: #323130; line-height: 1.5; }
-.ai-label { font-weight: 600; color: #323130; }
+.ai-icon { flex-shrink: 0; width: 16px; font-size: 12px; }
+.ai-content { color: #374151; line-height: 1.55; font-size: 12px; }
+.ai-label { font-weight: 600; color: #1a1d23; }
 
 .community-cite {
   font-style: italic;
-  color: #605e5c;
+  color: #6b7280;
   border-left: 2px solid #0078d4;
   padding-left: 8px;
   margin-top: 4px;
+  font-size: 11px;
 }
 
-/* Finding card */
+/* ── FINDING CARDS ───────────────────────────────────────────────────── */
 .finding-card {
-  border: 1px solid #edebe9;
+  border: 1px solid #e5e7eb;
   margin-bottom: 12px;
-  border-radius: 2px;
+  border-radius: 8px;
   overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
 }
 
 .finding-card-header {
@@ -282,31 +311,35 @@ body {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: #faf9f8;
-  border-bottom: 1px solid #edebe9;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .finding-card-body { padding: 14px 16px; }
 
 .finding-title {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  color: #323130;
+  color: #111827;
+  letter-spacing: -0.2px;
 }
 
 .finding-id {
-  font-size: 11px;
-  color: #605e5c;
-  font-family: 'Cascadia Code', 'Consolas', monospace;
+  font-size: 10px;
+  color: #9ca3af;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  margin-top: 2px;
 }
 
 .finding-delta {
   font-size: 12px;
-  color: #323130;
-  margin: 8px 0;
+  color: #374151;
+  margin: 10px 0 4px;
   padding: 8px 12px;
-  background: #fff4ce;
-  border-left: 3px solid #f7630c;
+  background: #fffbeb;
+  border-left: 3px solid #f59e0b;
+  border-radius: 0 4px 4px 0;
+  line-height: 1.4;
 }
 
 .blast-items { margin: 6px 0; }
@@ -315,30 +348,30 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-size: 12px;
-  color: #323130;
+  font-size: 11px;
+  color: #374151;
   margin-bottom: 4px;
+  line-height: 1.4;
 }
 
 .blast-item::before {
-  content: '⚠';
-  color: #f7630c;
+  content: '▲';
+  color: #f59e0b;
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 9px;
+  margin-top: 2px;
 }
 
-.fix-steps {
-  counter-reset: step;
-  margin: 6px 0;
-}
+.fix-steps { margin: 6px 0; }
 
 .fix-step {
   display: flex;
   gap: 10px;
   margin-bottom: 6px;
   font-size: 12px;
-  color: #323130;
+  color: #374151;
   align-items: flex-start;
+  line-height: 1.4;
 }
 
 .step-num {
@@ -350,35 +383,36 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   flex-shrink: 0;
+  margin-top: 1px;
 }
 
-/* Confidence badge */
 .confidence-badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
-  color: #107c10;
-  background: #dff6dd;
+  font-size: 9px;
+  color: #059669;
+  background: #ecfdf5;
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: 4px;
   font-weight: 600;
+  border: 1px solid #a7f3d0;
 }
 
-/* Framework badge */
 .framework-badge {
   display: inline-block;
-  font-size: 10px;
-  padding: 2px 8px;
-  border: 1px solid #edebe9;
-  border-radius: 2px;
-  color: #605e5c;
-  margin-right: 4px;
+  font-size: 9px;
+  padding: 2px 7px;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  color: #6b7280;
+  font-weight: 500;
 }
 
+/* ── FOOTER ──────────────────────────────────────────────────────────── */
 /* Footer */
 .report-footer {
   margin-top: 32px;
@@ -427,7 +461,7 @@ def _gauge_chart(score: float, previous: float | None = None) -> str:
             "increasing": {"color": C_GREEN},
             "decreasing": {"color": C_RED},
         } if delta_val is not None else None,
-        number={"suffix": "/100", "font": {"size": 40, "color": C_TEXT, "family": "Segoe UI"}},
+        number={"suffix": "/100", "font": {"size": 40, "color": C_TEXT, "family": "Inter"}},
         gauge={
             "axis": {"range": [0, 100], "tickwidth": 1, "tickcolor": C_GREY_L,
                      "tickfont": {"size": 10, "color": C_TEXT_MUTED}},
@@ -450,7 +484,7 @@ def _gauge_chart(score: float, previous: float | None = None) -> str:
         height=240,
         margin=dict(l=30, r=30, t=30, b=30),
         paper_bgcolor="white",
-        font={"family": "Segoe UI", "color": C_TEXT},
+        font={"family": "Inter", "color": C_TEXT},
     )
     return _plotly_to_html(fig)
 
@@ -477,7 +511,7 @@ def _findings_donut(
         hole=0.6,
         marker=dict(colors=list(colors), line=dict(color="white", width=2)),
         textinfo="percent",
-        textfont=dict(size=11, color="white", family="Segoe UI"),
+        textfont=dict(size=11, color="white", family="Inter"),
         hovertemplate="<b>%{label}</b><br>%{value} findings<br>%{percent}<extra></extra>",
     ))
     total = sum(values)
@@ -488,12 +522,12 @@ def _findings_donut(
         showlegend=True,
         legend=dict(
             orientation="v", x=1.0, y=0.5,
-            font=dict(size=11, color=C_TEXT, family="Segoe UI"),
+            font=dict(size=11, color=C_TEXT, family="Inter"),
         ),
         annotations=[dict(
             text=f"<b>{total}</b><br><span style='font-size:10px'>controls</span>",
             x=0.5, y=0.5, showarrow=False,
-            font=dict(size=16, color=C_TEXT, family="Segoe UI"),
+            font=dict(size=16, color=C_TEXT, family="Inter"),
         )],
     )
     return _plotly_to_html(fig)
@@ -551,7 +585,7 @@ def _framework_radar(framework_scores: dict[str, float]) -> str:
                 linecolor=C_BORDER,
             ),
             angularaxis=dict(
-                tickfont=dict(size=10, color=C_TEXT, family="Segoe UI"),
+                tickfont=dict(size=10, color=C_TEXT, family="Inter"),
                 linecolor=C_BORDER,
                 gridcolor=C_BORDER,
             ),
@@ -582,7 +616,7 @@ def _drift_bar(findings: list) -> str:
         marker=dict(color=colors, line=dict(width=0)),
         text=[f"{v:.0f}%" for v in values],
         textposition="outside",
-        textfont=dict(size=10, color=C_TEXT, family="Segoe UI"),
+        textfont=dict(size=10, color=C_TEXT, family="Inter"),
         customdata=texts,
         hovertemplate="<b>%{y}</b><br>%{customdata}<br>Drift: %{x:.1f}%<extra></extra>",
     ))
@@ -636,7 +670,7 @@ def _effort_scatter(findings: list) -> str:
                   fillcolor="rgba(16,124,16,0.08)",
                   line=dict(color="rgba(16,124,16,0.3)", width=1, dash="dot"))
     fig.add_annotation(x=1.0, y=4.45, text="Quick Wins",
-                       font=dict(size=9, color=C_GREEN, family="Segoe UI"),
+                       font=dict(size=9, color=C_GREEN, family="Inter"),
                        showarrow=False, bgcolor="white",
                        borderpad=2)
 
@@ -699,7 +733,7 @@ def _cluster_bar(clusters: list) -> str:
         marker=dict(color=colors, line=dict(width=0)),
         text=[f"{v} users" for v in values],
         textposition="outside",
-        textfont=dict(size=11, color=C_TEXT, family="Segoe UI"),
+        textfont=dict(size=11, color=C_TEXT, family="Inter"),
         customdata=actions,
         hovertemplate="<b>%{y}</b><br>%{x} users<br>%{customdata}<extra></extra>",
     ))
@@ -714,7 +748,7 @@ def _cluster_bar(clusters: list) -> str:
             linecolor=C_BORDER,
         ),
         yaxis=dict(
-            tickfont=dict(size=11, color=C_TEXT, family="Segoe UI"),
+            tickfont=dict(size=11, color=C_TEXT, family="Inter"),
             linecolor=C_BORDER,
         ),
         bargap=0.35,
@@ -781,7 +815,7 @@ def _sankey_auth(mfa_data: list) -> str:
         height=240,
         margin=dict(l=10, r=10, t=10, b=10),
         paper_bgcolor="white",
-        font=dict(family="Segoe UI", size=11, color=C_TEXT),
+        font=dict(family="Inter", size=11, color=C_TEXT),
     )
     return _plotly_to_html(fig)
 
@@ -842,7 +876,7 @@ def _sankey_devices(devices: list) -> str:
         height=240,
         margin=dict(l=10, r=10, t=10, b=10),
         paper_bgcolor="white",
-        font=dict(family="Segoe UI", size=11, color=C_TEXT),
+        font=dict(family="Inter", size=11, color=C_TEXT),
     )
     return _plotly_to_html(fig)
 
@@ -876,7 +910,7 @@ def _device_os_bar(devices: list) -> str:
         x=values, y=labels, orientation="h",
         marker=dict(color=colors, line=dict(width=0)),
         text=values, textposition="outside",
-        textfont=dict(size=11, color=C_TEXT, family="Segoe UI"),
+        textfont=dict(size=11, color=C_TEXT, family="Inter"),
         hovertemplate="<b>%{y}</b><br>%{x} devices<extra></extra>",
     ))
     fig.update_layout(
@@ -886,7 +920,7 @@ def _device_os_bar(devices: list) -> str:
         plot_bgcolor="white",
         xaxis=dict(showgrid=True, gridcolor=C_BORDER,
                    tickfont=dict(size=10, color=C_TEXT_MUTED), linecolor=C_BORDER),
-        yaxis=dict(tickfont=dict(size=11, color=C_TEXT, family="Segoe UI"),
+        yaxis=dict(tickfont=dict(size=11, color=C_TEXT, family="Inter"),
                    linecolor=C_BORDER),
         bargap=0.3,
     )
@@ -1021,15 +1055,17 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
 <!-- PAGE HEADER -->
 <div class="page-header">
   <div>
-    <div style="font-size:12px; opacity:0.7; margin-bottom:6px; letter-spacing:1px">TENANT.CHAT · SECURITY ASSESSMENT</div>
+    <div class="header-badge">tenant.chat · security assessment</div>
     <h1>{{ tenant_domain }}</h1>
     <div class="subtitle">{{ report_type_label }} Report &nbsp;·&nbsp; {{ frameworks }}</div>
   </div>
   <div class="meta">
-    <div style="font-size:13px; margin-bottom:4px">{{ assessed_at }}</div>
-    <div style="font-size:12px; opacity:0.7">Local-first · Private · AI-powered</div>
+    <div>{{ assessed_at }}</div>
+    <div style="margin-top:4px">Local-first &nbsp;·&nbsp; Private &nbsp;·&nbsp; AI-powered</div>
   </div>
 </div>
+
+<div class="content-wrap">
 
 <!-- SCORE METRICS -->
 <div class="section-title">Security Posture Overview</div>
@@ -1340,6 +1376,8 @@ REPORT_TEMPLATE = """<!DOCTYPE html>
   </table>
 </div>
 
+</div><!-- end content-wrap -->
+
 <!-- FOOTER -->
 <div class="report-footer">
   <div>Generated by tenant.chat v0.1.0 &nbsp;·&nbsp; github.com/neoparadigm/tenant.chat</div>
@@ -1381,7 +1419,23 @@ class Reporter:
         report_type: str,
         output_path: str,
     ) -> str:
-        """Generate the full report asynchronously."""
+        """Generate the full report asynchronously — branched by report type."""
+        from tenantchat.models import CheckStatus, Severity
+
+        if report_type == "exec":
+            return await self._generate_exec(result, state, output_path)
+        elif report_type == "audit":
+            return await self._generate_audit(result, state, output_path)
+        else:
+            return await self._generate_technical(result, state, output_path)
+
+    async def _generate_technical(
+        self,
+        result,
+        state,
+        output_path: str,
+    ) -> str:
+        """Full technical report — all charts, all findings, AI analysis."""
         from tenantchat.models import CheckStatus, Severity
 
         # Score and trend
@@ -1540,7 +1594,7 @@ class Reporter:
         html = template.render(
             css=PAGE_CSS,
             tenant_domain=state.tenant_domain,
-            report_type_label=report_type_labels.get(report_type, "Technical"),
+            report_type_label="Technical",
             frameworks=", ".join(result.frameworks),
             assessed_at=result.assessed_at.strftime("%d %B %Y %H:%M UTC"),
             score=score,
@@ -1565,18 +1619,457 @@ class Reporter:
             all_findings=all_findings_data,
         )
 
-        # Write output
+        return self._write_output(html, output_path)
+
+    async def _generate_exec(self, result, state, output_path: str) -> str:
+        """Executive report — board-ready, score + top 5 critical only."""
+        from tenantchat.models import CheckStatus, Severity
+        from jinja2 import Template
+
+        score       = result.posture_score
+        score_color = C_RED if score < 50 else C_ORANGE if score < 75 else C_GREEN
+
+        # Charts — exec gets gauge and donut only
+        gauge_chart = _gauge_chart(score, None)
+        donut_chart = _findings_donut(
+            result.critical_count, result.high_count,
+            result.medium_count, result.low_count, result.pass_count
+        )
+        scatter_chart = _effort_scatter(result.findings)
+
+        # Top 5 critical only with AI
+        critical_fails = [f for f in result.findings
+                         if f.status == CheckStatus.FAIL
+                         and f.severity == Severity.CRITICAL][:5]
+
+        critical_findings_data = []
+        for f in critical_fails:
+            ai = await _generate_ai_analysis(f, state)
+            blast_html = _blast_radius_section(f, state)
+            fix_html   = _fix_sequence_html(f)
+            critical_findings_data.append({
+                "title":           f.title,
+                "control_id":      f.control_id,
+                "framework":       f.framework,
+                "severity":        f.severity.value,
+                "effort":          f.effort,
+                "delta":           f.delta,
+                "blast_html":      blast_html,
+                "fix_html":        fix_html,
+                "cluster_note":    "",
+                "community_ref":   f.community_ref or "",
+                "ai_explanation":  ai.get("explanation", ""),
+                "ai_risk_context": ai.get("risk_context", ""),
+                "ai_fix_summary":  ai.get("fix_summary", ""),
+                "confidence":      ai.get("confidence", ""),
+            })
+
+        # Quick wins table — low effort, critical/high
+        quick_wins = sorted(
+            [f for f in result.findings
+             if f.status == CheckStatus.FAIL
+             and f.effort == "low"
+             and f.severity.value in ("critical", "high")],
+            key=lambda x: x.severity.value
+        )[:8]
+
+        quick_wins_data = [{
+            "control_id": f.control_id,
+            "title":      f.title,
+            "severity":   f.severity.value.upper(),
+            "sev_color":  C_RED if f.severity.value == "critical" else C_ORANGE,
+            "effort":     f.effort,
+            "delta":      (f.delta or "")[:70],
+        } for f in quick_wins]
+
+        # Executive narrative
+        risk_areas = []
+        if any(f.control_id.startswith("ENTRA") for f in critical_fails):
+            risk_areas.append("identity and access management")
+        if any(f.control_id.startswith("CISA-INTUNE") or f.control_id.startswith("INTUNE") for f in critical_fails):
+            risk_areas.append("endpoint management")
+        if any(f.control_id.startswith("AZURE") for f in critical_fails):
+            risk_areas.append("privileged access")
+        narrative = (
+            f"This assessment identified {result.critical_count} critical and "
+            f"{result.high_count} high severity findings across "
+            f"{len(result.frameworks)} security frameworks. "
+            f"The tenant posture score of {score}/100 indicates significant gaps in "
+            f"{', '.join(risk_areas) if risk_areas else 'multiple security domains'}. "
+            f"Immediate action is required on the critical findings below before "
+            f"any lower priority remediation work is undertaken."
+        )
+
+        EXEC_TEMPLATE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>tenant.chat — Executive Security Report</title>
+<style>{{ css }}</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <div class="header-badge">tenant.chat · executive security report</div>
+    <h1>{{ tenant_domain }}</h1>
+    <div class="subtitle">Executive Security Assessment &nbsp;·&nbsp; Confidential</div>
+  </div>
+  <div class="meta">
+    <div>{{ assessed_at }}</div>
+    <div style="margin-top:4px">Local-first &nbsp;·&nbsp; Private &nbsp;·&nbsp; AI-powered</div>
+  </div>
+</div>
+
+<div class="content-wrap">
+
+<!-- EXECUTIVE SUMMARY -->
+<div class="section-title">Executive Summary</div>
+<div class="card" style="border-left:4px solid {{ score_color }}; margin-bottom:16px">
+  <div style="font-size:13px; color:#374151; line-height:1.7">{{ narrative }}</div>
+</div>
+
+<!-- SCORE METRICS -->
+<div class="card-grid card-grid-4">
+  <div class="card metric-card">
+    <div class="metric-value" style="color:{{ score_color }}">{{ score }}</div>
+    <div class="metric-label">Posture Score</div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width:{{ score }}%; background:{{ score_color }}"></div>
+    </div>
+  </div>
+  <div class="card metric-card">
+    <div class="metric-value" style="color:{{ red }}">{{ critical }}</div>
+    <div class="metric-label">Critical</div>
+  </div>
+  <div class="card metric-card">
+    <div class="metric-value" style="color:{{ orange }}">{{ high }}</div>
+    <div class="metric-label">High</div>
+  </div>
+  <div class="card metric-card">
+    <div class="metric-value" style="color:{{ green }}">{{ passing }}/{{ total }}</div>
+    <div class="metric-label">Passing</div>
+  </div>
+</div>
+
+<!-- CHARTS -->
+<div class="section-title">Posture Analysis</div>
+<div class="card-grid card-grid-2">
+  {% if gauge_chart %}
+  <div class="card">
+    <div class="card-title">Overall Posture Score</div>
+    {{ gauge_chart }}
+    <div class="card-caption">Security posture score against all assessed frameworks. Target: 75+</div>
+  </div>
+  {% endif %}
+  {% if donut_chart %}
+  <div class="card">
+    <div class="card-title">Findings by Severity</div>
+    {{ donut_chart }}
+    <div class="card-caption">Distribution of {{ total }} assessed controls across severity levels.</div>
+  </div>
+  {% endif %}
+</div>
+
+{% if scatter_chart %}
+<div class="card" style="margin-bottom:16px">
+  <div class="card-title">Effort vs Security Impact — Quick Wins</div>
+  {{ scatter_chart }}
+  <div class="card-caption">Controls in the top-left quadrant are quick wins — high impact, low effort. Prioritise these first.</div>
+</div>
+{% endif %}
+
+<!-- QUICK WINS TABLE -->
+{% if quick_wins %}
+<div class="section-title">Recommended Priority Actions</div>
+<div class="card">
+  <table class="findings-table">
+    <thead>
+      <tr>
+        <th style="width:90px">Control</th>
+        <th>Finding</th>
+        <th style="width:70px">Severity</th>
+        <th style="width:55px">Effort</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for f in quick_wins %}
+    <tr>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#9ca3af;white-space:nowrap">{{ f.control_id }}</td>
+      <td>
+        <div style="font-weight:500;color:#111827;font-size:12px">{{ f.title }}</div>
+        {% if f.delta %}<div style="font-size:10px;color:#9ca3af;margin-top:2px">{{ f.delta }}</div>{% endif %}
+      </td>
+      <td><span class="severity-pill" style="background:{{ f.sev_color }}">{{ f.severity }}</span></td>
+      <td style="font-size:11px;color:#6b7280;text-align:center">{{ f.effort }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- CRITICAL FINDINGS -->
+{% if critical_findings %}
+<div class="section-title">Critical Findings — Immediate Action Required</div>
+{% for f in critical_findings %}
+<div class="finding-card">
+  <div class="finding-card-header">
+    <div>
+      <div class="finding-title">{{ f.title }}</div>
+      <div class="finding-id">{{ f.control_id }} &nbsp;·&nbsp; {{ f.framework }}</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span class="severity-pill" style="background:{{ red }}">CRITICAL</span>
+      <span class="framework-badge">{{ f.effort }} effort</span>
+    </div>
+  </div>
+  <div class="finding-card-body">
+    {% if f.delta %}<div class="finding-delta">{{ f.delta }}</div>{% endif %}
+    <div class="ai-section">
+      <div class="ai-section-title">🤖 AI Analysis</div>
+      <div class="ai-row">
+        <div class="ai-icon">💬</div>
+        <div class="ai-content"><span class="ai-label">What this means: </span>{{ f.ai_explanation }}</div>
+      </div>
+      <div class="ai-row">
+        <div class="ai-icon">⚠️</div>
+        <div class="ai-content"><span class="ai-label">Risk: </span>{{ f.ai_risk_context }}</div>
+      </div>
+      {% if f.blast_html %}
+      <div class="ai-row">
+        <div class="ai-icon">💥</div>
+        <div class="ai-content"><span class="ai-label">Impact: </span><div class="blast-items">{{ f.blast_html }}</div></div>
+      </div>
+      {% endif %}
+      <div class="ai-row">
+        <div class="ai-icon">✅</div>
+        <div class="ai-content"><span class="ai-label">Fix: </span><div class="fix-steps">{{ f.fix_html }}</div></div>
+      </div>
+      {% if f.confidence %}<div style="margin-top:8px"><span class="confidence-badge">✓ {{ f.confidence }} confidence</span></div>{% endif %}
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+
+</div><!-- content-wrap -->
+
+<div class="report-footer">
+  <div>Generated by tenant.chat v0.1.0 &nbsp;·&nbsp; github.com/neoparadigm/tenant.chat</div>
+  <div>Confidential &nbsp;·&nbsp; Local-first &nbsp;·&nbsp; No data transmitted</div>
+</div>
+
+</body>
+</html>"""
+
+        template = Template(EXEC_TEMPLATE)
+        html = template.render(
+            css=PAGE_CSS,
+            tenant_domain=state.tenant_domain,
+            assessed_at=result.assessed_at.strftime("%d %B %Y %H:%M UTC"),
+            score=score, score_color=score_color,
+            narrative=narrative,
+            critical=result.critical_count, high=result.high_count,
+            passing=result.pass_count, total=result.total_controls,
+            red=C_RED, orange=C_ORANGE, green=C_GREEN, blue=C_BLUE,
+            gauge_chart=gauge_chart, donut_chart=donut_chart,
+            scatter_chart=scatter_chart,
+            quick_wins=quick_wins_data,
+            critical_findings=critical_findings_data,
+        )
+
+        return self._write_output(html, output_path)
+
+    async def _generate_audit(self, result, state, output_path: str) -> str:
+        """Audit report — all controls, pass/fail/unknown, no AI, for compliance evidence."""
+        from tenantchat.models import CheckStatus
+        from jinja2 import Template
+
+        score       = result.posture_score
+        score_color = C_RED if score < 50 else C_ORANGE if score < 75 else C_GREEN
+
+        status_colors = {
+            CheckStatus.PASS:    C_GREEN,
+            CheckStatus.FAIL:    C_RED,
+            CheckStatus.PARTIAL: C_ORANGE,
+            CheckStatus.UNKNOWN: C_GREY,
+        }
+
+        all_findings_data = []
+        for f in result.findings:
+            all_findings_data.append({
+                "control_id":      f.control_id,
+                "title":           f.title,
+                "framework":       f.framework,
+                "framework_short": (
+                    f.framework
+                    .replace("Microsoft ", "")
+                    .replace("Security Baseline", "")
+                    .replace("Security Mode", "BSM")
+                    .replace(" v3.1", "")
+                    .replace("800-53 M365 Mapping", "NIST")
+                    .replace("Zero Trust RaMP", "ZT RaMP")
+                    .replace("Entra Identity", "Entra")
+                    .replace("Exchange and Purview", "Exch/Purview")
+                    .strip()[:14]
+                ),
+                "status":          f.status.value.upper(),
+                "status_color":    status_colors.get(f.status, C_GREY),
+                "severity":        f.severity.value.upper(),
+                "severity_color":  C_RED if f.severity.value == "critical" else
+                                   C_ORANGE if f.severity.value == "high" else
+                                   C_BLUE if f.severity.value == "medium" else C_GREY,
+                "delta":           (f.delta or "")[:80],
+                "effort":          f.effort,
+                "references":      getattr(f, "references", []),
+            })
+
+        # Group by framework
+        frameworks_data = {}
+        for f in all_findings_data:
+            fw = f["framework"]
+            if fw not in frameworks_data:
+                frameworks_data[fw] = {"pass": 0, "fail": 0, "unknown": 0, "findings": []}
+            frameworks_data[fw]["findings"].append(f)
+            if f["status"] == "PASS":
+                frameworks_data[fw]["pass"] += 1
+            elif f["status"] == "FAIL":
+                frameworks_data[fw]["fail"] += 1
+            else:
+                frameworks_data[fw]["unknown"] += 1
+
+        AUDIT_TEMPLATE = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>tenant.chat — Audit Report</title>
+<style>{{ css }}
+.audit-fw-header {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin: 20px 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.audit-fw-title { font-size: 13px; font-weight: 700; color: #111827; }
+.audit-fw-stats { display: flex; gap: 12px; font-size: 11px; }
+.audit-stat { display: flex; align-items: center; gap: 4px; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div>
+    <div class="header-badge">tenant.chat · audit trail report</div>
+    <h1>{{ tenant_domain }}</h1>
+    <div class="subtitle">Compliance Audit Report &nbsp;·&nbsp; All {{ total }} Controls &nbsp;·&nbsp; Confidential</div>
+  </div>
+  <div class="meta">
+    <div>{{ assessed_at }}</div>
+    <div style="margin-top:4px">Local-first &nbsp;·&nbsp; Private &nbsp;·&nbsp; AI-powered</div>
+  </div>
+</div>
+
+<div class="content-wrap">
+
+<!-- SCORE SUMMARY -->
+<div class="card-grid card-grid-4" style="margin-bottom:24px">
+  <div class="card metric-card">
+    <div class="metric-value" style="color:{{ score_color }}">{{ score }}</div>
+    <div class="metric-label">Posture Score</div>
+  </div>
+  <div class="card metric-card">
+    <div class="metric-value" style="color:{{ red }}">{{ critical }}</div>
+    <div class="metric-label">Critical</div>
+  </div>
+  <div class="card metric-card">
+    <div class="metric-value" style="color:{{ orange }}">{{ high }}</div>
+    <div class="metric-label">High</div>
+  </div>
+  <div class="card metric-card">
+    <div class="metric-value" style="color:{{ green }}">{{ passing }}/{{ total }}</div>
+    <div class="metric-label">Passing</div>
+  </div>
+</div>
+
+<!-- PER FRAMEWORK TABLES -->
+{% for fw_name, fw_data in frameworks.items() %}
+<div class="audit-fw-header">
+  <div class="audit-fw-title">{{ fw_name }}</div>
+  <div class="audit-fw-stats">
+    <div class="audit-stat"><span style="color:{{ green }}">●</span> {{ fw_data.pass }} pass</div>
+    <div class="audit-stat"><span style="color:{{ red }}">●</span> {{ fw_data.fail }} fail</div>
+    <div class="audit-stat"><span style="color:{{ grey }}">●</span> {{ fw_data.unknown }} unknown</div>
+  </div>
+</div>
+<div class="card" style="padding:0">
+  <table class="findings-table">
+    <thead>
+      <tr>
+        <th style="width:100px">Control</th>
+        <th>Finding</th>
+        <th style="width:60px">Status</th>
+        <th style="width:70px">Severity</th>
+        <th style="width:55px">Effort</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for f in fw_data.findings %}
+    <tr>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#9ca3af;white-space:nowrap">{{ f.control_id }}</td>
+      <td>
+        <div style="font-weight:500;color:#111827;font-size:12px">{{ f.title }}</div>
+        {% if f.delta %}<div style="font-size:10px;color:#9ca3af;margin-top:2px">{{ f.delta }}</div>{% endif %}
+      </td>
+      <td><span class="severity-pill" style="background:{{ f.status_color }}">{{ f.status }}</span></td>
+      <td><span class="severity-pill" style="background:{{ f.severity_color }}">{{ f.severity }}</span></td>
+      <td style="font-size:10px;color:#6b7280;text-align:center;white-space:nowrap">{{ f.effort }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endfor %}
+
+</div><!-- content-wrap -->
+
+<div class="report-footer">
+  <div>Generated by tenant.chat v0.1.0 &nbsp;·&nbsp; github.com/neoparadigm/tenant.chat</div>
+  <div>Confidential &nbsp;·&nbsp; Local-first &nbsp;·&nbsp; No data transmitted</div>
+</div>
+
+</body>
+</html>"""
+
+        template = Template(AUDIT_TEMPLATE)
+        html = template.render(
+            css=PAGE_CSS,
+            tenant_domain=state.tenant_domain,
+            assessed_at=result.assessed_at.strftime("%d %B %Y %H:%M UTC"),
+            score=score, score_color=score_color,
+            critical=result.critical_count, high=result.high_count,
+            passing=result.pass_count, total=result.total_controls,
+            red=C_RED, orange=C_ORANGE, green=C_GREEN, blue=C_BLUE, grey=C_GREY,
+            frameworks=frameworks_data,
+        )
+
+        return self._write_output(html, output_path)
+
+    def _write_output(self, html: str, output_path: str) -> str:
+        """Write HTML or PDF output."""
+        from pathlib import Path
         if output_path.endswith(".html"):
-            from pathlib import Path
             Path(output_path).write_text(html, encoding="utf-8")
             return output_path
-
         try:
             from weasyprint import HTML as WP_HTML
             WP_HTML(string=html).write_pdf(output_path)
             return output_path
         except Exception as e:
-            from pathlib import Path
             html_path = output_path.replace(".pdf", ".html")
             Path(html_path).write_text(html, encoding="utf-8")
             return html_path
