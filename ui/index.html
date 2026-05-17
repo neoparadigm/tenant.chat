@@ -464,11 +464,23 @@ select.btn { appearance: none; cursor: pointer; }
 .camp-chip:hover { color: var(--text); background: var(--dim); }
 .camp-chip.active { color: var(--text); background: var(--dim); border-bottom: 2px solid var(--accent); }
 /* D3 node/edge styles */
-.node-circle { cursor: pointer; transition: opacity .1s; stroke-width: 2.5; }
-.node-circle:hover { opacity: 0.8; }
+.node-circle { cursor: grab; stroke-width: 2.5; transition: filter .2s; }
+.node-g:hover .node-circle { filter: brightness(1.3); }
+.node-g { transition: transform .05s; }
 .node-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; pointer-events: none; text-anchor: middle; }
-.edge-path { stroke-opacity: 0.5; fill: none; }
-.edge-label { font-family: 'JetBrains Mono', monospace; font-size: 8px; fill: var(--text-3); }
+/* Flowing edge animation — particles travel along attack path */
+.edge-path { fill: none; stroke-dasharray: 8 6; animation: edgeFlow 1.8s linear infinite; }
+.edge-path.pass  { stroke-opacity: 0.25; animation-duration: 3s; }
+.edge-path.fail  { stroke-opacity: 0.7;  animation-duration: 1.2s; }
+.edge-path.unknown { stroke-opacity: 0.35; }
+@keyframes edgeFlow { to { stroke-dashoffset: -56; } }
+.edge-label { font-family: 'JetBrains Mono', monospace; font-size: 8px; fill: var(--text-3); pointer-events: none; }
+/* Pulse ring on gap / unknown nodes */
+.pulse-ring { fill: none; pointer-events: none; }
+@keyframes pulseRing {
+  0%   { r: 0;  opacity: .6; }
+  100% { r: 34px; opacity: 0;  }
+}
 
 /* ── HITL MODAL ── */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: flex; align-items: center; justify-content: center; }
@@ -1279,116 +1291,160 @@ function renderGraph(data) {
     });
   }
 
-  const hullG  = g.append('g');
-  const edgeG  = g.append('g');
-  const nodeG  = g.append('g');
+  const hullG = g.append('g');
+  const edgeG = g.append('g');
+  const nodeG = g.append('g');
 
+  // ── Pre-position nodes at step/row targets ──────────────────────────────
+  nodes.forEach(n => { n.x = targetX(n) + (Math.random() - 0.5) * 40;
+                        n.y = targetY(n) + (Math.random() - 0.5) * 40; });
+
+  // ── SVG glow filters ────────────────────────────────────────────────────
+  const defs = svg.select('defs');
+  ['fail','unknown'].forEach(s => {
+    const col = s === 'fail' ? '220,80,80' : '100,100,180';
+    const f = defs.append('filter').attr('id', `glow-${s}`)
+      .attr('x', '-50%').attr('y', '-50%').attr('width', '200%').attr('height', '200%');
+    f.append('feGaussianBlur').attr('in','SourceGraphic').attr('stdDeviation', s === 'fail' ? 5 : 3)
+     .attr('result','blur');
+    const merge = f.append('feMerge');
+    merge.append('feMergeNode').attr('in','blur');
+    merge.append('feMergeNode').attr('in','SourceGraphic');
+  });
+
+  // ── Edges ───────────────────────────────────────────────────────────────
   const edgeSel = edgeG.selectAll('.edge-path')
     .data(links).join('path')
-    .attr('class', 'edge-path')
-    .attr('stroke', '#333355').attr('stroke-width', 1.5)
+    .attr('class', d => {
+      const sn = nodeMap.get(d.source.id || d.source);
+      return `edge-path ${sn ? sn.status : 'unknown'}`;
+    })
+    .attr('stroke', d => {
+      const sn = nodeMap.get(d.source.id || d.source);
+      return sn ? nodeColor(sn) : '#333355';
+    })
+    .attr('stroke-width', 1.8)
     .attr('marker-end', 'url(#arrow)');
 
   const edgeLabelSel = edgeG.selectAll('.edge-label')
     .data(links).join('text')
-    .attr('class', 'edge-label').text(d => d.label);
+    .attr('class','edge-label').text(d => d.label);
 
+  // ── Nodes ───────────────────────────────────────────────────────────────
   const nodeSel = nodeG.selectAll('g.node-g')
     .data(nodes).join('g')
-    .attr('class', 'node-g').style('cursor', 'grab')
+    .attr('class','node-g')
     .on('click', (ev, d) => { ev.stopPropagation(); onNodeClick(d); })
     .call(d3.drag()
       .on('start', (ev, d) => {
-        if (!ev.active) _simulation.alphaTarget(0.3).restart();
+        if (!ev.active) _simulation.alphaTarget(0.4).restart();
         d.fx = d.x; d.fy = d.y;
       })
       .on('drag', (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
       .on('end', (ev, d) => {
-        if (!ev.active) _simulation.alphaTarget(0);
-        d.fx = null; d.fy = null;  // release — node floats back gently
+        if (!ev.active) _simulation.alphaTarget(0.05);
+        d.fx = null; d.fy = null;
       })
     );
 
-  // Node circle
-  nodeSel.append('circle')
-    .attr('class', 'node-circle')
-    .attr('r', d => NODE_TYPE_RADIUS[d.node_type] || 14)
-    .attr('fill', d => nodeColor(d)).attr('fill-opacity', 0.88)
-    .attr('stroke', d => CAMPAIGN_COLORS[d.campaign_id] || '#555577');
-
-  // Step number badge (top-right of node)
-  nodeSel.append('circle')
-    .attr('cx', d => (NODE_TYPE_RADIUS[d.node_type] || 14) - 4)
-    .attr('cy', d => -(NODE_TYPE_RADIUS[d.node_type] || 14) + 4)
-    .attr('r', 7)
-    .attr('fill', '#0e0e18').attr('stroke', '#28283c').attr('stroke-width', 1);
-
-  nodeSel.append('text')
-    .attr('x', d => (NODE_TYPE_RADIUS[d.node_type] || 14) - 4)
-    .attr('y', d => -(NODE_TYPE_RADIUS[d.node_type] || 14) + 4)
-    .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
-    .attr('font-family', 'JetBrains Mono, monospace')
-    .attr('font-size', 7).attr('font-weight', 700)
-    .attr('fill', '#a0a0c0').attr('pointer-events', 'none')
-    .text(d => d._step);
-
-  // Node label (below circle)
-  nodeSel.append('text')
-    .attr('class', 'node-label')
-    .attr('dy', d => (NODE_TYPE_RADIUS[d.node_type] || 14) + 11)
-    .attr('fill', 'var(--text-2)')
+  // Pulse ring (fail + unknown nodes — animates with SMIL)
+  nodeSel.filter(d => d.status !== 'pass').append('circle')
+    .attr('class','pulse-ring')
+    .attr('stroke', d => nodeColor(d))
+    .attr('stroke-width', 1.5)
     .each(function(d) {
-      const el = d3.select(this);
-      d.label.split('\n').forEach((line, i) => {
-        el.append('tspan').attr('x', 0).attr('dy', i === 0 ? 0 : 11).text(line);
-      });
+      const r   = NODE_TYPE_RADIUS[d.node_type] || 14;
+      const dur = d.status === 'fail' ? '1.6s' : '2.8s';
+      const el  = d3.select(this);
+      el.append('animate').attr('attributeName','r')
+        .attr('from', r).attr('to', r + 22)
+        .attr('dur', dur).attr('repeatCount','indefinite');
+      el.append('animate').attr('attributeName','opacity')
+        .attr('from', 0.55).attr('to', 0)
+        .attr('dur', dur).attr('repeatCount','indefinite');
     });
 
-  // ── Pre-position nodes so sequence is visible from frame 1 ─────────────
-  nodes.forEach(n => { n.x = targetX(n); n.y = targetY(n); });
+  // Main circle with glow filter on non-pass nodes
+  nodeSel.append('circle')
+    .attr('class','node-circle')
+    .attr('r', d => NODE_TYPE_RADIUS[d.node_type] || 14)
+    .attr('fill', d => nodeColor(d))
+    .attr('fill-opacity', 0.9)
+    .attr('stroke', d => CAMPAIGN_COLORS[d.campaign_id] || '#555577')
+    .attr('filter', d => d.status !== 'pass' ? `url(#glow-${d.status === 'fail' ? 'fail' : 'unknown'})` : null);
 
-  // ── Simulation ──────────────────────────────────────────────────────────
-  if (_simulation) _simulation.stop();
+  // Step badge
+  nodeSel.append('circle')
+    .attr('cx', d =>  (NODE_TYPE_RADIUS[d.node_type] || 14) - 3)
+    .attr('cy', d => -(NODE_TYPE_RADIUS[d.node_type] || 14) + 3)
+    .attr('r', 7).attr('fill','#0a0a14').attr('stroke','#28283c').attr('stroke-width',1);
+  nodeSel.append('text')
+    .attr('x', d =>  (NODE_TYPE_RADIUS[d.node_type] || 14) - 3)
+    .attr('y', d => -(NODE_TYPE_RADIUS[d.node_type] || 14) + 3)
+    .attr('text-anchor','middle').attr('dominant-baseline','middle')
+    .attr('font-family','JetBrains Mono,monospace').attr('font-size',7).attr('font-weight',700)
+    .attr('fill','#8888bb').attr('pointer-events','none')
+    .text(d => d._step);
+
+  // Label below node
+  nodeSel.append('text')
+    .attr('class','node-label')
+    .attr('dy', d => (NODE_TYPE_RADIUS[d.node_type] || 14) + 11)
+    .attr('fill','#c0c0d8')
+    .each(function(d) {
+      const el = d3.select(this);
+      d.label.split('\n').forEach((line, i) =>
+        el.append('tspan').attr('x',0).attr('dy', i===0 ? 0 : 11).text(line));
+    });
+
+  // ── Simulation — never fully settles ────────────────────────────────────
+  if (_simulation) { _simulation.stop(); }
+  if (window._reheatTimer) clearInterval(window._reheatTimer);
+
   _simulation = d3.forceSimulation(nodes)
-    .force('link',    d3.forceLink(links).id(d => d.id).distance(colW * 0.75).strength(0.4))
-    .force('charge',  d3.forceManyBody().strength(-220))
-    .force('collide', d3.forceCollide(34))
-    // Gentle nudge — maintains rough order without locking nodes in place
-    .force('x', d3.forceX(d => targetX(d)).strength(0.06))
-    .force('y', d3.forceY(d => targetY(d)).strength(campaigns.length > 1 ? 0.12 : 0.04))
-    .alphaDecay(0.012)
+    .force('link',    d3.forceLink(links).id(d => d.id).distance(colW * 0.85).strength(0.45))
+    .force('charge',  d3.forceManyBody().strength(-260).distanceMax(300))
+    .force('collide', d3.forceCollide(36).strength(0.8))
+    .alphaDecay(0.008)    // very slow decay
+    .alphaMin(0.001)
+    .alphaTarget(0.05)    // never fully stop — keep gently alive
     .on('tick', () => {
       edgeSel.attr('d', d => {
         const sx = d.source.x, sy = d.source.y;
         const tx = d.target.x, ty = d.target.y;
-        const dr = Math.hypot(tx - sx, ty - sy) * 1.4;
+        const dr = Math.hypot(tx - sx, ty - sy) * 1.5;
         return `M${sx},${sy}A${dr},${dr} 0 0,1 ${tx},${ty}`;
       });
       edgeLabelSel
-        .attr('x', d => (d.source.x + d.target.x) / 2 + 6)
-        .attr('y', d => (d.source.y + d.target.y) / 2 - 4);
+        .attr('x', d => (d.source.x + d.target.x) / 2 + 8)
+        .attr('y', d => (d.source.y + d.target.y) / 2 - 5);
       nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
 
-      // Convex hulls per campaign
+      // Live convex hulls
       hullG.selectAll('*').remove();
-      d3.group(nodes, n => n.campaign_id).forEach((campNodes, campId) => {
-        const pts = campNodes.map(n => [n.x, n.y]);
+      d3.group(nodes, n => n.campaign_id).forEach((cns, campId) => {
+        const pts = cns.map(n => [n.x, n.y]);
         if (pts.length < 2) return;
         const hull = pts.length >= 3 ? d3.polygonHull(pts) : pts;
         if (!hull) return;
-        const cx = d3.mean(pts, p => p[0]), cy = d3.mean(pts, p => p[1]);
-        const padded = hull.map(([x, y]) => {
-          const a = Math.atan2(y - cy, x - cx);
-          return [x + Math.cos(a) * 32, y + Math.sin(a) * 32];
+        const cx = d3.mean(pts, p=>p[0]), cy = d3.mean(pts, p=>p[1]);
+        const padded = hull.map(([x,y]) => {
+          const a = Math.atan2(y-cy, x-cx);
+          return [x + Math.cos(a)*36, y + Math.sin(a)*36];
         });
         hullG.append('path')
           .attr('d', `M${padded.join('L')}Z`)
-          .attr('fill', CAMPAIGN_COLORS[campId] || '#555577').attr('fill-opacity', 0.05)
-          .attr('stroke', CAMPAIGN_COLORS[campId] || '#555577')
-          .attr('stroke-opacity', 0.18).attr('stroke-width', 1.5)
-          .attr('stroke-dasharray', '4,3');
+          .attr('fill', CAMPAIGN_COLORS[campId]||'#555577').attr('fill-opacity',0.06)
+          .attr('stroke', CAMPAIGN_COLORS[campId]||'#555577')
+          .attr('stroke-opacity',0.25).attr('stroke-width',1.5)
+          .attr('stroke-dasharray','5,4');
       });
     });
+
+  // Periodic reheat — gentle bump every 5s to keep simulation warm
+  window._reheatTimer = setInterval(() => {
+    if (_simulation) _simulation.alpha(Math.max(_simulation.alpha(), 0.15)).restart();
+  }, 5000);
 
   svg.on('click', () => closeGraphDetail());
 }
