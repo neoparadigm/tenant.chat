@@ -631,3 +631,262 @@ controls:
     community_ref: "exchange/dmarc"
     references:
       - https://learn.microsoft.com/en-us/azure/active-directory/fundamentals/add-custom-domain
+
+  # ── SECTION 9: DEVICE CODE FLOW ──────────────────────────────────────────
+  # Storm-2372 primary attack vector (active since August 2024).
+  # Device code flow allows token acquisition without MFA on the attacker device.
+  # Blocking this flow via CA is the single most impactful Storm-2372 control.
+
+  - control_id: ENTRA-DC-01
+    title: "Device code authentication flow blocked via Conditional Access"
+    description: >
+      A Conditional Access policy must block the OAuth 2.0 device
+      code flow for all users and all applications.
+      Storm-2372 uses device code phishing to obtain valid OAuth
+      tokens without triggering MFA — the victim completes MFA on
+      their own device while the attacker polls for the resulting
+      token. Blocking device code flow via CA is the primary
+      Storm-2372 mitigation. The CA conditions.authenticationFlows
+      property with transferMethods: deviceCodeFlow is required.
+      Review report-only mode logs for 14 days before enforcing.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      conditions.authenticationFlows.transferMethods: deviceCodeFlow
+      grantControls.builtInControls: [block]
+    blast_radius:
+      - "Azure CLI and PowerShell device code interactive login will break"
+      - "IoT and printer integrations using device code flow will fail"
+      - "Legacy automation scripts using device code must migrate to service principals"
+      - "Set policy to report-only for 14 days — review Sign-in logs before enforcing"
+    community_ref: "identity/device-code-flow"
+    references:
+      - https://www.microsoft.com/en-us/security/blog/2025/02/13/storm-2372-conducts-device-code-phishing-campaign/
+      - https://learn.microsoft.com/en-us/azure/active-directory/conditional-access/concept-conditional-access-session
+
+  - control_id: ENTRA-DC-02
+    title: "Authentication transfer methods monitored in Sign-in logs"
+    description: >
+      Sign-in logs must be queried for device code flow
+      authentication attempts to detect Storm-2372 activity.
+      Even with a blocking CA policy, report-only mode or a
+      misconfigured exception group may allow device code sign-ins.
+      Monitoring the authenticationMethodsUsed field for
+      deviceCodeFlow detects active attack attempts.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /auditLogs/signIns
+    expected:
+      _note: >
+        Sign-in logs must be accessible. Filter for
+        authenticationMethodsUsed contains 'deviceCode' to identify
+        Storm-2372 reconnaissance or active attacks.
+    blast_radius:
+      - "No blast radius — log monitoring is non-disruptive"
+    community_ref: "identity/device-code-flow"
+    references:
+      - https://www.microsoft.com/en-us/security/blog/2025/02/13/storm-2372-conducts-device-code-phishing-campaign/
+
+  # ── SECTION 10: CONTINUOUS ACCESS EVALUATION ─────────────────────────────
+  # CAE is the primary defence once a session token has been stolen.
+  # AiTM attacks steal authenticated session cookies — without CAE,
+  # stolen tokens remain valid until expiry (up to 1 hour).
+  # CAE enables near-real-time token revocation on policy change or sign-out.
+
+  - control_id: ENTRA-CAE-01
+    title: "Continuous Access Evaluation enabled with strict location enforcement"
+    description: >
+      Continuous Access Evaluation must be enabled in Conditional
+      Access policies with strictLocation mode. CAE allows Entra ID
+      to revoke access tokens in near-real-time when a user's IP
+      address changes or a policy is updated.
+      Without CAE, stolen session cookies from AiTM attacks remain
+      valid for up to 1 hour. With CAE strict mode, location changes
+      trigger immediate re-evaluation. AiTM-stolen tokens used from
+      a different IP are revoked within seconds rather than hours.
+      Configure via CA policy sessionControls.continuousAccessEvaluation.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      sessionControls.continuousAccessEvaluation.mode: strictLocation
+    blast_radius:
+      - "Users on VPNs with rotating exit nodes may experience frequent re-auth"
+      - "Mobile users moving between networks may be prompted to re-authenticate"
+      - "Applications that do not support CAE may not honour revocation"
+      - "Named locations should be configured to reduce false positives"
+    community_ref: "identity/continuous-access-evaluation"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/conditional-access/concept-continuous-access-evaluation
+      - https://www.microsoft.com/en-us/security/blog/2023/06/08/detecting-and-mitigating-a-multi-stage-aitm-phishing-and-bec-campaign/
+
+  # ── SECTION 11: TOKEN LIFETIME AND SESSION CONTROLS ──────────────────────
+  # Storm-2372 refresh tokens are valid for 90 days by default.
+  # AiTM stolen session cookies are valid for the browser session lifetime.
+  # Restricting token lifetime is the second line of defence after CAE.
+
+  - control_id: ENTRA-TOKEN-01
+    title: "Persistent browser sessions disabled for all users"
+    description: >
+      Conditional Access must disable persistent browser sessions
+      for all users. Persistent sessions allow authentication cookies
+      to survive browser close/reopen, extending the window of
+      exposure for stolen session tokens. AiTM attacks rely on
+      persistent session cookies to maintain access after phishing.
+      Set sessionControls.persistentBrowser.mode to 'never' in
+      at least one CA policy covering all users.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      sessionControls.persistentBrowser.mode: never
+    blast_radius:
+      - "Users will be required to sign in again when they open a new browser session"
+      - "Mobile app users may experience more frequent authentication prompts"
+      - "Shared kiosk devices will require sign-in on each session — plan for this"
+      - "Windows Hello for Business can reduce friction on managed devices"
+    community_ref: "identity/token-lifetime"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/conditional-access/howto-conditional-access-session-lifetime
+      - https://learn.microsoft.com/en-us/azure/active-directory/conditional-access/concept-conditional-access-session
+
+  - control_id: ENTRA-TOKEN-02
+    title: "Sign-in frequency enforced — maximum 1 hour for privileged roles"
+    description: >
+      Conditional Access must enforce sign-in frequency for all users,
+      with a maximum of 1 hour for privileged role holders.
+      Storm-2372 refresh tokens can persist for 90 days. Enforcing
+      sign-in frequency limits the lifetime of any single stolen token.
+      For all users set frequency to 8 hours. For privileged accounts
+      (Global Admin, Exchange Admin, SharePoint Admin) set to 1 hour.
+      Use sessionControls.signInFrequency with frequencyInterval: timeBased.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /identity/conditionalAccess/policies
+    expected:
+      state: enabled
+      sessionControls.signInFrequency.value: 1
+      sessionControls.signInFrequency.type: hours
+    blast_radius:
+      - "Admins will be re-prompted to authenticate every hour during active sessions"
+      - "Long-running browser-based admin tasks will be interrupted"
+      - "Power BI and Office apps may prompt users more frequently"
+      - "Modern auth clients handle this well — legacy clients may fail"
+    community_ref: "identity/token-lifetime"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/conditional-access/howto-conditional-access-session-lifetime
+      - https://learn.microsoft.com/en-us/azure/active-directory/roles/security-planning
+
+  # ── SECTION 12: INBOX RULES AND MAIL FORWARDING ──────────────────────────
+  # Post-BEC persistence via inbox rules is a primary attacker technique.
+  # AiTM / Tycoon2FA attackers routinely create inbox rules to:
+  #   - Forward all mail to an external attacker-controlled address
+  #   - Delete or hide security alerts from the victim
+  # External auto-forwarding must be blocked organisation-wide.
+
+  - control_id: ENTRA-MAIL-01
+    title: "Mailbox audit logging enabled and inbox rule creation alerted"
+    description: >
+      Unified Audit Log must be enabled and mailbox audit logging
+      must capture inbox rule creation events. An alert must be
+      configured to fire when any user creates or modifies an inbox
+      rule. Attackers routinely create forwarding and deletion rules
+      immediately after BEC compromise to maintain dwell time.
+      Without alerting, inbox rules created during the attack window
+      persist silently after the attacker is evicted.
+      Audit log operation names to monitor:
+      New-InboxRule, Set-InboxRule, UpdateInboxRules.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /security/auditLog/queries
+    expected:
+      _note: >
+        Unified Audit Log must be accessible. Mailbox audit log
+        actions must include UpdateInboxRules and New-InboxRule.
+        An alert policy must fire on these events.
+    blast_radius:
+      - "No blast radius — audit logging is non-disruptive"
+      - "Increased log volume from legitimate inbox rule usage"
+      - "Alert tuning required to reduce false positives from power users"
+    community_ref: "exchange/mailbox-audit"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/compliance/audit-mailboxes
+      - https://www.microsoft.com/en-us/security/blog/2023/06/08/detecting-and-mitigating-a-multi-stage-aitm-phishing-and-bec-campaign/
+
+  - control_id: ENTRA-MAIL-02
+    title: "External email auto-forwarding blocked via transport rule"
+    description: >
+      An Exchange Online transport rule must block automatic
+      forwarding of email to external addresses for all users.
+      External auto-forwarding is a primary BEC persistence
+      technique — attackers configure forwarding rules immediately
+      after gaining mailbox access so they continue to receive
+      copies of all email even after password reset.
+      The transport rule must set AutoForwardEnabled to false
+      at the organisation level and block SMTP forwarding.
+      Legitimate business exceptions must go through an
+      admin-approved allow-list process.
+    check_type: presence
+    severity: high
+    effort: low
+    graph_endpoint: /admin/exchange
+    expected:
+      _note: >
+        Exchange Online transport rule blocking external forwarding
+        must exist and be enabled. Check via Get-TransportRule
+        where the rule blocks automatic forwarding.
+    blast_radius:
+      - "Users who auto-forward to personal email accounts will lose forwarding immediately"
+      - "Shared mailboxes forwarding to distribution lists must be reviewed"
+      - "Legitimate third-party integrations using forwarding must be converted to connectors"
+      - "Communicate change 14 days in advance — create exception request process"
+    community_ref: "exchange/anti-forwarding"
+    references:
+      - https://learn.microsoft.com/en-us/microsoft-365/security/office-365-security/outbound-spam-policies-external-email-forwarding
+      - https://www.cisa.gov/sites/default/files/publications/M-22-09.pdf
+
+  # ── SECTION 13: BREAK-GLASS MONITORING ───────────────────────────────────
+  # Extends ENTRA-PRIV-03 (account existence) with operational monitoring.
+  # Break-glass accounts must never be used in normal operations.
+  # Any usage is an emergency indicator that demands immediate investigation.
+
+  - control_id: ENTRA-PRIV-06
+    title: "Break-glass account usage triggers immediate high-severity alert"
+    description: >
+      An alert rule must fire immediately whenever a break-glass
+      emergency access account signs in. Break-glass accounts are
+      excluded from all CA policies and MFA requirements and therefore
+      represent the highest-privilege, least-protected accounts in the
+      tenant. Any sign-in from these accounts is either a genuine
+      emergency or evidence of account compromise.
+      The alert must route to a monitored channel (SOC, PagerDuty,
+      or equivalent) with a response SLA of under 15 minutes.
+      Usage must be documented with a post-incident review.
+      Correlate sign-in location against expected custodian locations.
+    check_type: presence
+    severity: critical
+    effort: low
+    graph_endpoint: /security/alerts_v2
+    expected:
+      _note: >
+        An alert policy must exist targeting the break-glass account
+        UPNs (or a dedicated group) and fire on any successful sign-in.
+        Alert severity must be High or Critical.
+    blast_radius:
+      - "No blast radius — alert creation is additive and non-disruptive"
+      - "On-call team must be prepared to respond to alert within 15 minutes"
+      - "False positive procedure needed for planned emergency drills"
+    community_ref: "identity/break-glass"
+    references:
+      - https://learn.microsoft.com/en-us/azure/active-directory/roles/security-emergency-access
+      - https://www.cisa.gov/news-events/alerts/2026/03/18/cisa-urges-endpoint-management-system-hardening-after-cyberattack-against-us-organization

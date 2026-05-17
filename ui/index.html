@@ -437,7 +437,71 @@ select.btn { appearance: none; cursor: pointer; }
 [data-theme="light"] .sb-sep { background: var(--border); }
 [data-theme="light"] .ce-cmd:hover { box-shadow: 0 2px 8px rgba(0,101,184,0.15); }
 
+
+/* ── ATTACK GRAPH ── */
+.graph-wrap { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.graph-toolbar { display: flex; align-items: center; gap: 0; border-bottom: 1px solid var(--border); background: var(--bg-1); flex-shrink: 0; }
+.graph-svg-wrap { flex: 1; position: relative; overflow: hidden; background: var(--bg); }
+.graph-svg { width: 100%; height: 100%; }
+.graph-detail { position: absolute; bottom: 0; left: 0; right: 0; max-height: 240px; background: var(--bg-1); border-top: 2px solid var(--border-2); transform: translateY(100%); transition: transform .2s ease; display: flex; flex-direction: column; z-index: 10; }
+.graph-detail.visible { transform: translateY(0); }
+.gd-header { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; border-bottom: 1px solid var(--border); background: var(--bg-2); flex-shrink: 0; }
+.gd-title { font-size: 11px; color: var(--text-2); letter-spacing: .5px; }
+.gd-close { background: transparent; border: none; color: var(--text-3); cursor: pointer; font-size: 13px; padding: 0 4px; }
+.gd-body { overflow-y: auto; padding: 10px 14px; flex: 1; }
+.gd-mitre { font-size: 10px; color: var(--cyan); letter-spacing: .5px; margin-bottom: 6px; }
+.gd-desc { font-size: 11px; color: var(--text-2); line-height: 1.5; margin-bottom: 10px; }
+.gd-controls { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.gd-ctl { font-size: 10px; padding: 2px 6px; border: 1px solid var(--border-2); color: var(--text-3); }
+.gd-ctl.pass { border-color: var(--green); color: var(--green); }
+.gd-ctl.fail { border-color: var(--red); color: var(--red); }
+.gd-agent-btn { font-family: var(--mono); font-size: 11px; padding: 5px 12px; background: var(--red); border: none; color: #fff; cursor: pointer; letter-spacing: .3px; transition: background .1s; }
+.gd-agent-btn:hover { background: #c05555; }
+.graph-legend { display: flex; align-items: center; gap: 14px; padding: 0 14px; height: 100%; border-left: 1px solid var(--border); font-size: 10px; color: var(--text-3); }
+.gl-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+/* campaign filter chips */
+.camp-chip { font-size: 10px; padding: 4px 10px; border-right: 1px solid var(--border); cursor: pointer; color: var(--text-3); transition: all .1s; white-space: nowrap; height: 100%; display: flex; align-items: center; }
+.camp-chip:hover { color: var(--text); background: var(--dim); }
+.camp-chip.active { color: var(--text); background: var(--dim); border-bottom: 2px solid var(--accent); }
+/* D3 node/edge styles */
+.node-circle { cursor: pointer; transition: opacity .1s; stroke-width: 2.5; }
+.node-circle:hover { opacity: 0.8; }
+.node-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; pointer-events: none; text-anchor: middle; }
+.edge-path { stroke-opacity: 0.5; fill: none; }
+.edge-label { font-family: 'JetBrains Mono', monospace; font-size: 8px; fill: var(--text-3); }
+
+/* ── HITL MODAL ── */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: flex; align-items: center; justify-content: center; }
+.modal-box { width: min(720px, 95vw); max-height: 85vh; background: var(--bg-1); border: 1px solid var(--border-2); display: flex; flex-direction: column; box-shadow: 0 8px 40px rgba(0,0,0,0.5); }
+.modal-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--bg-2); flex-shrink: 0; }
+.modal-title { font-size: 11px; color: var(--text-2); letter-spacing: 1px; text-transform: uppercase; }
+.modal-title-tag { font-size: 10px; color: var(--yellow); border: 1px solid var(--yellow); padding: 1px 6px; margin-left: 10px; letter-spacing: .5px; }
+.modal-close { background: transparent; border: none; color: var(--text-3); cursor: pointer; font-size: 15px; }
+.modal-body { flex: 1; overflow-y: auto; padding: 16px; min-height: 0; }
+.modal-section-title { font-size: 10px; color: var(--text-3); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 8px; margin-top: 14px; }
+.modal-section-title:first-child { margin-top: 0; }
+.modal-reasoning { font-size: 11px; color: var(--text-2); line-height: 1.6; background: var(--bg-2); padding: 10px 12px; border-left: 2px solid var(--accent); white-space: pre-wrap; }
+.modal-blast { font-size: 11px; color: var(--yellow); background: rgba(232,201,126,0.06); border: 1px solid rgba(232,201,126,0.25); padding: 8px 12px; }
+.modal-blast li { margin-left: 14px; margin-bottom: 3px; }
+.modal-warning { font-size: 11px; color: var(--red); background: rgba(232,120,120,0.06); border: 1px solid rgba(232,120,120,0.25); padding: 8px 12px; margin-top: 10px; }
+.api-call-block { border: 1px solid var(--border-2); margin-bottom: 10px; }
+.api-call-header { display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: var(--bg-3); border-bottom: 1px solid var(--border); font-size: 11px; }
+.api-call-step { color: var(--text-3); min-width: 20px; }
+.api-call-method { font-weight: 700; letter-spacing: .5px; }
+.api-call-method.POST { color: var(--green); }
+.api-call-method.PATCH { color: var(--yellow); }
+.api-call-method.GET { color: var(--cyan); }
+.api-call-method.DELETE { color: var(--red); }
+.api-call-endpoint { color: var(--text); font-size: 10px; }
+.api-call-desc { font-size: 10px; color: var(--text-3); margin-left: auto; }
+.api-call-body { padding: 8px 10px; font-size: 10px; color: var(--text-2); white-space: pre; overflow-x: auto; background: var(--bg); max-height: 150px; overflow-y: auto; }
+.api-call-reversible { font-size: 9px; color: var(--green); padding: 2px 10px; border-top: 1px solid var(--border); }
+.modal-footer { padding: 10px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0; background: var(--bg-2); }
+.modal-executing { display: flex; align-items: center; gap: 8px; color: var(--text-2); font-size: 11px; }
+.modal-result-ok { font-size: 11px; color: var(--green); padding: 4px 8px; background: rgba(93,212,93,0.08); border: 1px solid var(--green); }
+.modal-result-err { font-size: 11px; color: var(--red); padding: 4px 8px; background: rgba(232,120,120,0.08); border: 1px solid var(--red); }
 </style>
+<script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
 <body>
 <div class="shell">
@@ -453,6 +517,7 @@ select.btn { appearance: none; cursor: pointer; }
       <div class="tb-tab" onclick="nav('blast')">blast</div>
       <div class="tb-tab" onclick="nav('clusters')">clusters</div>
       <div class="tb-tab" onclick="nav('report')">report</div>
+      <div class="tb-tab" data-nav="attack-paths" onclick="nav('attack-paths');loadAttackGraph()">attack paths</div>
     </nav>
     <div class="tb-right">
       <button class="tb-btn" id="theme-btn" onclick="toggleTheme()">light</button>
@@ -681,7 +746,67 @@ select.btn { appearance: none; cursor: pointer; }
       </div>
     </div>
 
+    <!-- ATTACK PATHS -->
+    <div class="page" id="page-attack-paths">
+      <div class="graph-wrap">
+        <div class="graph-toolbar">
+          <div class="camp-chip active" data-campaign="all" onclick="filterCampaign('all',this)">all campaigns</div>
+          <div class="camp-chip" data-campaign="storm-2372" onclick="filterCampaign('storm-2372',this)">storm-2372</div>
+          <div class="camp-chip" data-campaign="aitm-tycoon2fa" onclick="filterCampaign('aitm-tycoon2fa',this)">aitm / tycoon2fa</div>
+          <div class="camp-chip" data-campaign="handala-stryker" onclick="filterCampaign('handala-stryker',this)">stryker</div>
+          <div class="camp-chip" data-campaign="qr-phishing" onclick="filterCampaign('qr-phishing',this)">qr phishing</div>
+          <div class="camp-chip" data-campaign="sharepoint-bec" onclick="filterCampaign('sharepoint-bec',this)">sharepoint bec</div>
+          <div class="camp-chip" data-campaign="domain-spoofing" onclick="filterCampaign('domain-spoofing',this)">domain spoofing</div>
+          <div class="graph-legend">
+            <span><span class="gl-dot" style="background:#e87878"></span>gap / fail</span>
+            <span><span class="gl-dot" style="background:#5dd45d"></span>controlled</span>
+            <span><span class="gl-dot" style="background:#444466"></span>unknown</span>
+          </div>
+        </div>
+        <div class="graph-svg-wrap" id="graph-svg-wrap">
+          <div id="graph-empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-3);font-size:11px;letter-spacing:.5px;pointer-events:none">
+            loading attack graph...
+          </div>
+          <svg class="graph-svg" id="graph-svg"></svg>
+        </div>
+        <div class="graph-detail" id="graph-detail">
+          <div class="gd-header">
+            <div>
+              <span class="gd-title" id="gd-title">—</span>
+              <span id="gd-campaign" style="font-size:10px;color:var(--text-3);margin-left:10px"></span>
+            </div>
+            <button class="gd-close" onclick="closeGraphDetail()">✕</button>
+          </div>
+          <div class="gd-body">
+            <div class="gd-mitre" id="gd-mitre"></div>
+            <div class="gd-desc" id="gd-desc"></div>
+            <div style="font-size:10px;color:var(--text-3);margin-bottom:4px;letter-spacing:1px;text-transform:uppercase">linked controls</div>
+            <div class="gd-controls" id="gd-controls"></div>
+            <button class="gd-agent-btn" id="gd-agent-btn" style="display:none" onclick="triggerAgent()"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </main>
+
+  <!-- HITL APPROVAL MODAL -->
+  <div class="modal-overlay" id="hitl-modal" style="display:none">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div>
+          <span class="modal-title" id="hitl-modal-title">agent plan</span>
+          <span class="modal-title-tag">requires explicit approval</span>
+        </div>
+        <button class="modal-close" onclick="closeHitlModal()">✕</button>
+      </div>
+      <div class="modal-body" id="hitl-modal-body"></div>
+      <div class="modal-footer" id="hitl-modal-footer">
+        <button class="btn primary" id="hitl-approve-btn" onclick="approveAgentPlan()">approve &amp; execute</button>
+        <button class="btn" onclick="closeHitlModal()">cancel</button>
+      </div>
+    </div>
+  </div>
 
   <div class="statusbar">
     <div class="sb-seg bright" id="sb-tenant">not connected</div>
@@ -703,7 +828,11 @@ function nav(name){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tb-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
-  document.querySelectorAll('.tb-tab').forEach(t=>{if(t.textContent.trim()===name)t.classList.add('active');});
+  // Match by data-nav attribute (preferred) or text content
+  document.querySelectorAll('.tb-tab').forEach(t=>{
+    const key=t.dataset.nav||t.textContent.trim();
+    if(key===name)t.classList.add('active');
+  });
 }
 
 function toggleTheme(){
@@ -944,6 +1073,376 @@ async function showHistory(){
     d.history.slice(-5).reverse().forEach(h=>out+=`  ${h.assessed_at.slice(0,10)} · score: **${h.score}** · critical: ${h.critical} · high: ${h.high}\n`);
     if(d.trend)out+=`\n${d.trend}`;appendLine('agent',out);
   }catch{appendLine('error','could not load history');}
+}
+
+// ── Attack Graph ─────────────────────────────────────────────────────────────
+
+const CAMPAIGN_COLORS = {
+  'storm-2372':     '#ff5f57',
+  'aitm-tycoon2fa': '#ffbd2e',
+  'handala-stryker':'#e87878',
+  'qr-phishing':    '#bd93f9',
+  'sharepoint-bec': '#3b9ede',
+  'domain-spoofing':'#6bc8d4',
+};
+
+const NODE_TYPE_RADIUS = {
+  initial_access:    18,
+  credential_access: 16,
+  lateral_movement:  16,
+  execution:         14,
+  persistence:       15,
+  exfiltration:      14,
+  impact:            20,
+};
+
+let _graphData   = null;
+let _graphCamp   = 'all';
+let _selectedNode= null;
+let _currentPlan = null;
+let _simulation  = null;
+
+function nodeColor(d) {
+  if (d.status === 'fail')    return '#e87878';
+  if (d.status === 'pass')    return '#5dd45d';
+  return '#444466';
+}
+
+async function loadAttackGraph(campaign) {
+  if (campaign) _graphCamp = campaign;
+  document.getElementById('graph-empty').textContent = 'loading attack graph...';
+  document.getElementById('graph-empty').style.display = 'flex';
+  try {
+    const r  = await fetch(`${API}/attack-graph?campaign=${_graphCamp}`);
+    _graphData = await r.json();
+    document.getElementById('graph-empty').style.display = 'none';
+    renderGraph(_graphData);
+  } catch(e) {
+    document.getElementById('graph-empty').textContent = 'could not load graph — run tenantchat serve';
+  }
+}
+
+function filterCampaign(campaign, el) {
+  document.querySelectorAll('.camp-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  loadAttackGraph(campaign);
+}
+
+function renderGraph(data) {
+  const wrap  = document.getElementById('graph-svg-wrap');
+  const svg   = d3.select('#graph-svg');
+  svg.selectAll('*').remove();
+
+  const W = wrap.clientWidth  || 800;
+  const H = wrap.clientHeight || 500;
+
+  // Build node/link arrays for d3 (must be copies for simulation)
+  const nodes = data.nodes.map(d => ({ ...d }));
+  const nodeMap = new Map(nodes.map(n => [n.id, n]));
+  const links = data.edges
+    .filter(e => nodeMap.has(e.source) && nodeMap.has(e.target))
+    .map(e => ({ ...e, source: e.source, target: e.target }));
+
+  svg.attr('viewBox', `0 0 ${W} ${H}`);
+
+  // Arrow marker
+  svg.append('defs').append('marker')
+    .attr('id', 'arrow')
+    .attr('viewBox', '0 -4 8 8')
+    .attr('refX', 22).attr('refY', 0)
+    .attr('markerWidth', 6).attr('markerHeight', 6)
+    .attr('orient', 'auto')
+    .append('path')
+    .attr('d', 'M0,-4L8,0L0,4')
+    .attr('fill', '#444466');
+
+  const g = svg.append('g');
+
+  // Zoom
+  svg.call(d3.zoom()
+    .scaleExtent([0.3, 3])
+    .on('zoom', ev => g.attr('transform', ev.transform))
+  );
+
+  // Campaign boundary hulls (convex hull per campaign)
+  // Draw before edges/nodes so they are behind
+  const campGroups = d3.group(nodes, d => d.campaign_id);
+
+  const hullG = g.append('g').attr('class', 'hulls');
+
+  // Edges
+  const edgeG = g.append('g');
+  const edgeSel = edgeG.selectAll('.edge-path')
+    .data(links).join('path')
+    .attr('class', 'edge-path')
+    .attr('stroke', '#333355')
+    .attr('stroke-width', 1.5)
+    .attr('marker-end', 'url(#arrow)');
+
+  const edgeLabelSel = edgeG.selectAll('.edge-label')
+    .data(links).join('text')
+    .attr('class', 'edge-label')
+    .text(d => d.label);
+
+  // Nodes
+  const nodeG = g.append('g');
+  const nodeSel = nodeG.selectAll('g.node-g')
+    .data(nodes).join('g')
+    .attr('class', 'node-g')
+    .style('cursor', 'pointer')
+    .on('click', (ev, d) => { ev.stopPropagation(); onNodeClick(d); });
+
+  nodeSel.append('circle')
+    .attr('class', 'node-circle')
+    .attr('r', d => NODE_TYPE_RADIUS[d.node_type] || 14)
+    .attr('fill', d => nodeColor(d))
+    .attr('fill-opacity', 0.85)
+    .attr('stroke', d => CAMPAIGN_COLORS[d.campaign_id] || '#555577');
+
+  nodeSel.append('text')
+    .attr('class', 'node-label')
+    .attr('dy', d => (NODE_TYPE_RADIUS[d.node_type] || 14) + 12)
+    .attr('fill', 'var(--text-2)')
+    .each(function(d) {
+      const el = d3.select(this);
+      const lines = d.label.split('\n');
+      lines.forEach((line, i) => {
+        el.append('tspan').attr('x', 0).attr('dy', i === 0 ? 0 : 11).text(line);
+      });
+    });
+
+  // Simulation
+  if (_simulation) _simulation.stop();
+  _simulation = d3.forceSimulation(nodes)
+    .force('link',    d3.forceLink(links).id(d => d.id).distance(110).strength(0.6))
+    .force('charge',  d3.forceManyBody().strength(-280))
+    .force('center',  d3.forceCenter(W / 2, H / 2))
+    .force('collide', d3.forceCollide(30))
+    .on('tick', () => {
+      // curved edges
+      edgeSel.attr('d', d => {
+        const sx = d.source.x, sy = d.source.y;
+        const tx = d.target.x, ty = d.target.y;
+        const dx = tx - sx, dy = ty - sy;
+        const dr = Math.sqrt(dx * dx + dy * dy) * 1.3;
+        return `M${sx},${sy}A${dr},${dr} 0 0,1 ${tx},${ty}`;
+      });
+      edgeLabelSel
+        .attr('x', d => (d.source.x + d.target.x) / 2)
+        .attr('y', d => (d.source.y + d.target.y) / 2);
+      nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
+
+      // Redraw convex hulls per campaign
+      hullG.selectAll('*').remove();
+      campGroups.forEach((campNodes, campId) => {
+        const pts = campNodes.map(n => [n.x, n.y]);
+        if (pts.length < 2) return;
+        const hull = pts.length >= 3 ? d3.polygonHull(pts) : pts;
+        if (!hull) return;
+        const padded = hull.map(([x, y]) => {
+          const cx = d3.mean(pts, p => p[0]);
+          const cy = d3.mean(pts, p => p[1]);
+          const angle = Math.atan2(y - cy, x - cx);
+          return [x + Math.cos(angle) * 30, y + Math.sin(angle) * 30];
+        });
+        hullG.append('path')
+          .attr('d', `M${padded.join('L')}Z`)
+          .attr('fill', CAMPAIGN_COLORS[campId] || '#555577')
+          .attr('fill-opacity', 0.05)
+          .attr('stroke', CAMPAIGN_COLORS[campId] || '#555577')
+          .attr('stroke-opacity', 0.2)
+          .attr('stroke-width', 1.5)
+          .attr('stroke-dasharray', '4,3');
+      });
+    });
+
+  // Click on background closes detail
+  svg.on('click', () => closeGraphDetail());
+}
+
+function onNodeClick(node) {
+  _selectedNode = node;
+  const detail = document.getElementById('graph-detail');
+  detail.classList.add('visible');
+
+  document.getElementById('gd-title').textContent  = node.label.replace('\n', ' — ');
+  document.getElementById('gd-campaign').textContent = node.campaign_name || node.campaign_id;
+  document.getElementById('gd-mitre').textContent =
+    `${node.mitre_id} · ${node.mitre_name} · ${node.node_type.replace(/_/g,' ')}`;
+  document.getElementById('gd-desc').textContent = node.description;
+
+  const ctlWrap = document.getElementById('gd-controls');
+  ctlWrap.innerHTML = '';
+  if (!node.control_ids || !node.control_ids.length) {
+    ctlWrap.innerHTML = '<span style="font-size:10px;color:var(--text-3)">no controls mapped</span>';
+  } else {
+    node.control_ids.forEach(cid => {
+      const sp = document.createElement('span');
+      sp.className = `gd-ctl ${node.status === 'fail' ? 'fail' : node.status === 'pass' ? 'pass' : ''}`;
+      sp.textContent = cid;
+      sp.title = `Click to explain ${cid}`;
+      sp.style.cursor = 'pointer';
+      sp.onclick = () => {
+        nav('chat');
+        send(`explain finding ${cid} — what is wrong and how do I fix it safely?`);
+      };
+      ctlWrap.appendChild(sp);
+    });
+  }
+
+  const agentBtn = document.getElementById('gd-agent-btn');
+  if (node.status === 'fail' && node.suggested_agent) {
+    agentBtn.style.display = '';
+    agentBtn.textContent   = `▶ run agent: ${node.suggested_agent}`;
+  } else {
+    agentBtn.style.display = 'none';
+  }
+}
+
+function closeGraphDetail() {
+  document.getElementById('graph-detail').classList.remove('visible');
+  _selectedNode = null;
+}
+
+async function triggerAgent() {
+  if (!_selectedNode || !_selectedNode.suggested_agent) return;
+  const agentName = _selectedNode.suggested_agent;
+  const agentBtn  = document.getElementById('gd-agent-btn');
+  agentBtn.textContent = 'generating plan...';
+  agentBtn.disabled    = true;
+  try {
+    const r = await fetch(`${API}/agent/run`, {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({
+        agent_name:  agentName,
+        control_ids: _selectedNode.control_ids || [],
+      }),
+    });
+    if (!r.ok) {
+      const err = await r.json();
+      appendLine('error', `agent error: ${err.detail}`);
+      return;
+    }
+    _currentPlan = await r.json();
+    showHitlModal(_currentPlan);
+  } catch(e) {
+    appendLine('error', `agent run failed: ${e}`);
+  } finally {
+    agentBtn.textContent = `▶ run agent: ${agentName}`;
+    agentBtn.disabled    = false;
+  }
+}
+
+function showHitlModal(plan) {
+  document.getElementById('hitl-modal-title').textContent = plan.title || plan.agent_name;
+  const body = document.getElementById('hitl-modal-body');
+  body.innerHTML = '';
+
+  // Reasoning
+  const rt = document.createElement('div');
+  rt.className = 'modal-section-title'; rt.textContent = 'agent reasoning (gemma 4)'; body.appendChild(rt);
+  const reasoning = document.createElement('div');
+  reasoning.className = 'modal-reasoning'; reasoning.textContent = plan.reasoning || '(no reasoning)';
+  body.appendChild(reasoning);
+
+  // Blast radius
+  if (plan.blast_radius && plan.blast_radius.length) {
+    const bt = document.createElement('div');
+    bt.className = 'modal-section-title'; bt.textContent = 'blast radius — what might break'; body.appendChild(bt);
+    const bl = document.createElement('div');
+    bl.className = 'modal-blast';
+    bl.innerHTML = '<ul>' + plan.blast_radius.map(b => `<li>${fmt(b)}</li>`).join('') + '</ul>';
+    body.appendChild(bl);
+  }
+
+  // Graph API calls
+  if (plan.graph_api_calls && plan.graph_api_calls.length) {
+    const ct = document.createElement('div');
+    ct.className = 'modal-section-title';
+    ct.textContent = `graph api calls — ${plan.graph_api_calls.length} operation(s) — review before approving`;
+    body.appendChild(ct);
+    plan.graph_api_calls.forEach(call => {
+      const block = document.createElement('div');
+      block.className = 'api-call-block';
+      const header = document.createElement('div');
+      header.className = 'api-call-header';
+      header.innerHTML =
+        `<span class="api-call-step">${call.step}</span>` +
+        `<span class="api-call-method ${call.method}">${call.method}</span>` +
+        `<span class="api-call-endpoint">https://graph.microsoft.com/v1.0${call.endpoint}</span>` +
+        `<span class="api-call-desc">${fmt(call.description || '')}</span>`;
+      block.appendChild(header);
+      if (call.body) {
+        const bodyEl = document.createElement('div');
+        bodyEl.className = 'api-call-body';
+        bodyEl.textContent = JSON.stringify(call.body, null, 2);
+        block.appendChild(bodyEl);
+      }
+      if (call.reversible) {
+        const rev = document.createElement('div');
+        rev.className = 'api-call-reversible';
+        rev.textContent = `↩ reversible · ${call.undo_instructions || ''}`;
+        block.appendChild(rev);
+      }
+      body.appendChild(block);
+    });
+  }
+
+  // Warning
+  if (plan.warning) {
+    const wt = document.createElement('div');
+    wt.className = 'modal-section-title'; wt.textContent = 'important notice'; body.appendChild(wt);
+    const w = document.createElement('div');
+    w.className = 'modal-warning'; w.textContent = plan.warning;
+    body.appendChild(w);
+  }
+
+  // Reset footer
+  document.getElementById('hitl-modal-footer').innerHTML =
+    `<button class="btn primary" id="hitl-approve-btn" onclick="approveAgentPlan()">approve &amp; execute</button>` +
+    `<button class="btn" onclick="closeHitlModal()">cancel</button>`;
+
+  document.getElementById('hitl-modal').style.display = 'flex';
+}
+
+async function approveAgentPlan() {
+  if (!_currentPlan) return;
+  const planId = _currentPlan.plan_id;
+
+  document.getElementById('hitl-modal-footer').innerHTML =
+    `<div class="modal-executing"><div class="thinking"><span></span><span></span><span></span></div>executing graph api calls...</div>`;
+
+  try {
+    const r = await fetch(`${API}/agent/approve/${planId}?approved=true`, { method: 'POST' });
+    const d = await r.json();
+
+    const allOk = d.results && d.results.every(r => r.status === 'success');
+    const tag   = allOk
+      ? `<span class="modal-result-ok">✓ ${d.results.length} call(s) executed successfully</span>`
+      : `<span class="modal-result-err">⚠ some calls failed — check results</span>`;
+
+    document.getElementById('hitl-modal-footer').innerHTML =
+      `${tag}<button class="btn" onclick="closeHitlModal()">close</button>`;
+
+    appendLine('system',
+      `agent '${d.agent}' executed — ${d.results.length} Graph API call(s). ${d.note || ''}`
+    );
+
+    // Prompt re-assessment
+    if (allOk) {
+      appendLine('agent', `Changes applied. Run \`/assess\` to re-evaluate control status and update the attack graph.`);
+    }
+  } catch(e) {
+    document.getElementById('hitl-modal-footer').innerHTML =
+      `<span class="modal-result-err">execution failed: ${e}</span>` +
+      `<button class="btn" onclick="closeHitlModal()">close</button>`;
+  }
+}
+
+function closeHitlModal() {
+  document.getElementById('hitl-modal').style.display = 'none';
+  _currentPlan = null;
 }
 
 document.addEventListener('keydown',e=>{

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import uuid
 from typing import Any, TypedDict
 
 import httpx
@@ -22,6 +23,18 @@ console = Console()
 OLLAMA_BASE  = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("TENANTCHAT_MODEL", "gemma4")
 CLAUDE_MODEL = "claude-sonnet-4-6"
+
+_AGENT_SYSTEM = """You are a Microsoft 365 security remediation agent.
+Your job is to explain a specific security gap and its fix in plain English.
+
+Rules:
+- Be direct and specific — no filler.
+- Cite MITRE ATT&CK technique IDs where relevant.
+- Name the exact configuration items that must change.
+- Quantify the blast radius (how many users / what breaks).
+- Never recommend enforcing a change without a validation period first.
+- Keep responses under 250 words.
+"""
 
 _SYSTEM_PROMPT = """You are tenant.chat — a local-first M365 security 
 assessment agent. You help IT admins and security architects understand 
@@ -419,4 +432,523 @@ class Agent:
                 f"({c.user_count} users, {c.risk_level} risk)"
             )
             lines.append(f"  Action: {c.recommended_action}")
+        return "\n".join(lines)
+
+    # ── One-click Agents (HITL) ────────────────────────────────────────────
+
+    async def run_agent(
+        self,
+        agent_name:   str,
+        assessment:   AssessmentResult | None = None,
+        tenant_state: TenantState | None = None,
+        token:        str | None = None,
+    ) -> dict:
+        """
+        Generate a HITL-gated remediation plan.
+
+        Returns a plan dict containing:
+          - plan_id          — opaque ID stored server-side
+          - agent_name       — which agent built this plan
+          - title            — short description
+          - reasoning        — Gemma 4 explanation of what and why
+          - blast_radius     — list of what might break
+          - graph_api_calls  — ordered list of write operations (NOT yet executed)
+          - requires_approval — always True; no execution without UI approval
+
+        No Graph API writes happen in this method.
+        """
+        builders = {
+            "device-code-block": self._plan_device_code_block,
+            "aitm-hardening":    self._plan_aitm_hardening,
+            "break-glass-setup": self._plan_break_glass_setup,
+            "inbox-rule-audit":  self._plan_inbox_rule_audit,
+            "stryker-defense":   self._plan_stryker_defense,
+        }
+        builder = builders.get(agent_name)
+        if not builder:
+            raise ValueError(
+                f"Unknown agent '{agent_name}'. "
+                f"Valid agents: {', '.join(builders)}"
+            )
+        return await builder(assessment, tenant_state, token)
+
+    # ── Agent plan builders ────────────────────────────────────────────────
+
+    async def _plan_device_code_block(
+        self,
+        assessment:   AssessmentResult | None,
+        tenant_state: TenantState | None,
+        token:        str | None,
+    ) -> dict:
+        """Block device code OAuth flow via a new Conditional Access policy."""
+        context = self._agent_context(assessment, tenant_state, ["ENTRA-DC-01"])
+        reasoning = await self._llm_call(
+            system=_AGENT_SYSTEM,
+            context=context,
+            message=(
+                "The tenant is missing a Conditional Access policy that blocks device "
+                "code OAuth flow.  Storm-2372 uses this flow to steal tokens without "
+                "triggering MFA.\n\n"
+                "Explain in plain English:\n"
+                "1. What device code flow is and why it's dangerous.\n"
+                "2. What this new CA policy will do.\n"
+                "3. What might break (be specific — printers, legacy apps, IoT).\n"
+                "4. Why the policy is set to report-only first.\n"
+                "Keep your answer under 200 words."
+            ),
+        )
+        return {
+            "plan_id":     str(uuid.uuid4()),
+            "agent_name":  "device-code-block",
+            "title":       "Block Device Code Flow (Storm-2372 defence)",
+            "reasoning":   reasoning,
+            "blast_radius": [
+                "Devices that use device code flow for authentication will break",
+                "Older IoT/printer integrations using device code may be affected",
+                "Azure CLI / PowerShell interactive device code login will fail",
+                "Policy starts in report-only mode — review Sign-in logs before enforcing",
+            ],
+            "graph_api_calls": [
+                {
+                    "step":        1,
+                    "description": "Create CA policy blocking device code flow (report-only)",
+                    "method":      "POST",
+                    "endpoint":    "/identity/conditionalAccess/policies",
+                    "body": {
+                        "displayName": "BLOCK — Device Code Flow [tenant.chat]",
+                        "state":       "enabledForReportingButNotEnforced",
+                        "conditions": {
+                            "users":        {"includeUsers": ["All"]},
+                            "applications": {"includeApplications": ["All"]},
+                            "authenticationFlows": {
+                                "transferMethods": "deviceCodeFlow",
+                            },
+                        },
+                        "grantControls": {
+                            "operator":          "OR",
+                            "builtInControls":   ["block"],
+                        },
+                    },
+                    "reversible":        True,
+                    "undo_instructions": "Delete the CA policy with id returned in response.",
+                },
+            ],
+            "requires_approval": True,
+            "warning": (
+                "This policy is created in REPORT-ONLY mode.  Review the Sign-in "
+                "logs for 7–14 days before switching state to 'enabled'.  "
+                "To enforce: PATCH /identity/conditionalAccess/policies/{id} "
+                "with state: 'enabled'."
+            ),
+        }
+
+    async def _plan_aitm_hardening(
+        self,
+        assessment:   AssessmentResult | None,
+        tenant_state: TenantState | None,
+        token:        str | None,
+    ) -> dict:
+        """Harden against AiTM attacks: CAE + sign-in frequency + phish-resistant MFA."""
+        context = self._agent_context(
+            assessment, tenant_state,
+            ["ENTRA-CAE-01", "ENTRA-TOKEN-01", "ENTRA-TOKEN-02", "ENTRA-MFA-02"],
+        )
+        reasoning = await self._llm_call(
+            system=_AGENT_SYSTEM,
+            context=context,
+            message=(
+                "The tenant is missing defences against AiTM session cookie theft.\n\n"
+                "Explain in plain English:\n"
+                "1. Why Continuous Access Evaluation (CAE) limits stolen session impact.\n"
+                "2. Why sign-in frequency limits token lifetime.\n"
+                "3. What might break for users (re-authentication frequency).\n"
+                "Keep your answer under 200 words."
+            ),
+        )
+        return {
+            "plan_id":    str(uuid.uuid4()),
+            "agent_name": "aitm-hardening",
+            "title":      "AiTM Hardening (CAE + token lifetime + phish-resistant MFA)",
+            "reasoning":  reasoning,
+            "blast_radius": [
+                "Users will be re-prompted to sign in every hour for privileged sessions",
+                "Long-running browser sessions will be interrupted",
+                "Applications that do not support CAE may behave inconsistently",
+                "Mobile apps need modern auth support for CAE to apply",
+            ],
+            "graph_api_calls": [
+                {
+                    "step":        1,
+                    "description": "Create CA policy enforcing 1-hour sign-in frequency for all users",
+                    "method":      "POST",
+                    "endpoint":    "/identity/conditionalAccess/policies",
+                    "body": {
+                        "displayName": "REQUIRE — Sign-in Frequency 1hr [tenant.chat]",
+                        "state":       "enabledForReportingButNotEnforced",
+                        "conditions": {
+                            "users":        {"includeUsers": ["All"]},
+                            "applications": {"includeApplications": ["All"]},
+                        },
+                        "sessionControls": {
+                            "signInFrequency": {
+                                "value":             1,
+                                "type":              "hours",
+                                "isEnabled":         True,
+                                "frequencyInterval": "timeBased",
+                            },
+                            "persistentBrowser": {
+                                "mode":      "never",
+                                "isEnabled": True,
+                            },
+                            "continuousAccessEvaluation": {
+                                "mode": "strictLocation",
+                            },
+                        },
+                    },
+                    "reversible":        True,
+                    "undo_instructions": "Delete the CA policy with id returned in response.",
+                },
+                {
+                    "step":        2,
+                    "description": "Create CA policy requiring phishing-resistant MFA for admin portals",
+                    "method":      "POST",
+                    "endpoint":    "/identity/conditionalAccess/policies",
+                    "body": {
+                        "displayName": "REQUIRE — Phish-Resistant MFA for Admins [tenant.chat]",
+                        "state":       "enabledForReportingButNotEnforced",
+                        "conditions": {
+                            "users": {
+                                "includeRoles": [
+                                    "62e90394-69f5-4237-9190-012177145e10",  # Global Administrator
+                                    "e8611ab8-c189-46e8-94e1-60213ab1f814",  # Privileged Role Administrator
+                                    "7be44c8a-adaf-4e2a-84d6-ab2649e08a13",  # Privileged Authentication Administrator
+                                ],
+                            },
+                            "applications": {
+                                "includeApplications": ["MicrosoftAdminPortals"],
+                            },
+                        },
+                        "grantControls": {
+                            "operator":               "OR",
+                            "authenticationStrength": {
+                                "id": "00000000-0000-0000-0000-000000000004",  # Phishing-resistant MFA
+                            },
+                        },
+                    },
+                    "reversible":        True,
+                    "undo_instructions": "Delete the CA policy with id returned in response.",
+                },
+            ],
+            "requires_approval": True,
+            "warning": (
+                "Both policies are created in REPORT-ONLY mode.  "
+                "The phishing-resistant MFA policy requires admins to have "
+                "FIDO2 keys or Windows Hello for Business enrolled before enforcing."
+            ),
+        }
+
+    async def _plan_break_glass_setup(
+        self,
+        assessment:   AssessmentResult | None,
+        tenant_state: TenantState | None,
+        token:        str | None,
+    ) -> dict:
+        """Create a break-glass monitoring alert and guidance for account setup."""
+        context = self._agent_context(assessment, tenant_state, ["ENTRA-PRIV-03"])
+        reasoning = await self._llm_call(
+            system=_AGENT_SYSTEM,
+            context=context,
+            message=(
+                "The tenant may lack properly configured break-glass emergency access accounts.\n\n"
+                "Explain in plain English:\n"
+                "1. What break-glass accounts are and why they're critical.\n"
+                "2. Why they must be excluded from ALL CA policies and MFA requirements.\n"
+                "3. How to secure and store the passwords.\n"
+                "4. Why immediate alerting on their use is mandatory.\n"
+                "Keep your answer under 200 words."
+            ),
+        )
+        return {
+            "plan_id":    str(uuid.uuid4()),
+            "agent_name": "break-glass-setup",
+            "title":      "Break-Glass Emergency Access — Alert Configuration",
+            "reasoning":  reasoning,
+            "blast_radius": [
+                "No blast radius — alert creation is additive and non-disruptive",
+                "Break-glass account creation (manual step) requires careful password management",
+                "Accounts must be manually excluded from all CA policies after creation",
+            ],
+            "graph_api_calls": [
+                {
+                    "step":        1,
+                    "description": "Create alert rule for break-glass account sign-in activity",
+                    "method":      "POST",
+                    "endpoint":    "/security/alerts_v2",
+                    "body": {
+                        "displayName":  "ALERT — Break-Glass Account Sign-In [tenant.chat]",
+                        "description":  (
+                            "Fires immediately when a break-glass emergency access account "
+                            "is used.  All usage must be investigated — break-glass accounts "
+                            "should never be used in normal operations."
+                        ),
+                        "severity":     "high",
+                        "status":       "active",
+                        "category":     "IdentityRisk",
+                    },
+                    "reversible":        True,
+                    "undo_instructions": "DELETE /security/alerts_v2/{id}",
+                },
+                {
+                    "step":        2,
+                    "description": "Query existing users for break-glass candidates (read-only)",
+                    "method":      "GET",
+                    "endpoint":    (
+                        "/users?$filter=displayName eq 'BreakGlass1' "
+                        "or displayName eq 'BreakGlass2'"
+                        "&$select=id,displayName,userPrincipalName,accountEnabled"
+                    ),
+                    "body":              None,
+                    "reversible":        True,
+                    "undo_instructions": "Read-only — no undo needed.",
+                },
+            ],
+            "requires_approval": True,
+            "warning": (
+                "Break-glass account CREATION is a manual step requiring careful "
+                "out-of-band password management.  After creation, both accounts must "
+                "be manually excluded from all Conditional Access policies and MFA "
+                "registration requirements.  Store passwords offline split across two "
+                "custodians.  Monitor sign-in logs for any usage with immediate alerting."
+            ),
+        }
+
+    async def _plan_inbox_rule_audit(
+        self,
+        assessment:   AssessmentResult | None,
+        tenant_state: TenantState | None,
+        token:        str | None,
+    ) -> dict:
+        """Enable mailbox audit logging and alert on suspicious inbox rule creation."""
+        context = self._agent_context(
+            assessment, tenant_state, ["ENTRA-MAIL-01", "ENTRA-MAIL-02"]
+        )
+        reasoning = await self._llm_call(
+            system=_AGENT_SYSTEM,
+            context=context,
+            message=(
+                "The tenant may have gaps in inbox rule auditing and external forwarding controls.\n\n"
+                "Explain in plain English:\n"
+                "1. Why inbox rules are a critical persistence technique after BEC.\n"
+                "2. What suspicious inbox rules look like (keywords: delete, forward, hide).\n"
+                "3. Why external auto-forwarding must be blocked by default.\n"
+                "4. What legitimate use cases might be affected.\n"
+                "Keep your answer under 200 words."
+            ),
+        )
+        return {
+            "plan_id":    str(uuid.uuid4()),
+            "agent_name": "inbox-rule-audit",
+            "title":      "Inbox Rule Audit and External Forwarding Block",
+            "reasoning":  reasoning,
+            "blast_radius": [
+                "Users who auto-forward email to personal accounts will lose forwarding",
+                "Legitimate workflows using inbox rules to route to shared mailboxes may be affected",
+                "Review forwarding rules with business owners before blocking",
+                "Exchange transport rules affect all users — communicate change in advance",
+            ],
+            "graph_api_calls": [
+                {
+                    "step":        1,
+                    "description": "Enable unified audit log for the organisation (read state)",
+                    "method":      "GET",
+                    "endpoint":    "/security/auditLog/queries",
+                    "body":        None,
+                    "reversible":        True,
+                    "undo_instructions": "Read-only — no undo needed.",
+                },
+                {
+                    "step":        2,
+                    "description": "Create alert for inbox rule creation events",
+                    "method":      "POST",
+                    "endpoint":    "/security/alerts_v2",
+                    "body": {
+                        "displayName": "ALERT — Inbox Rule Created [tenant.chat]",
+                        "description": (
+                            "Fires when any user creates or modifies an inbox rule.  "
+                            "Investigate rules that forward, delete, or move security "
+                            "notifications to hidden folders."
+                        ),
+                        "severity": "medium",
+                        "status":   "active",
+                        "category": "SuspiciousActivity",
+                    },
+                    "reversible":        True,
+                    "undo_instructions": "DELETE /security/alerts_v2/{id}",
+                },
+                {
+                    "step":        3,
+                    "description": "Query existing inbox rules across mailboxes (read-only audit)",
+                    "method":      "GET",
+                    "endpoint":    "/users?$select=id,userPrincipalName&$top=10",
+                    "body":        None,
+                    "reversible":        True,
+                    "undo_instructions": "Read-only — no undo needed.",
+                },
+            ],
+            "requires_approval": True,
+            "warning": (
+                "Blocking external auto-forwarding requires an Exchange Online transport "
+                "rule (not Graph API).  Run in Exchange Admin Center: "
+                "New-TransportRule -Name 'Block external forwarding' "
+                "-FromScope 'InOrganization' -SentToScope 'NotInOrganization' "
+                "-RedirectMessageTo $null -StopRuleProcessing $true.  "
+                "Review all existing forwarding rules with business owners first."
+            ),
+        }
+
+    async def _plan_stryker_defense(
+        self,
+        assessment:   AssessmentResult | None,
+        tenant_state: TenantState | None,
+        token:        str | None,
+    ) -> dict:
+        """Full Stryker-breach defence: phish-resistant MFA for admins + GA alert + PIM check."""
+        context = self._agent_context(
+            assessment, tenant_state,
+            ["ENTRA-MFA-02", "ENTRA-CA-06", "ENTRA-IDP-03", "ENTRA-PRIV-01", "ENTRA-PRIV-02"],
+        )
+        reasoning = await self._llm_call(
+            system=_AGENT_SYSTEM,
+            context=context,
+            message=(
+                "The tenant has gaps that match the Stryker breach attack chain "
+                "(CISA advisory March 2026).\n\n"
+                "Explain in plain English:\n"
+                "1. The Stryker attack chain: AiTM → GA compromise → new GA → Intune wipe.\n"
+                "2. Which specific controls would have blocked each step.\n"
+                "3. What the immediate priority actions are for this tenant.\n"
+                "4. Why phishing-resistant MFA for admins is the single most important control.\n"
+                "Keep your answer under 250 words."
+            ),
+        )
+
+        # Check current admin count for context
+        admin_context = ""
+        if tenant_state and tenant_state.admins:
+            admin_context = f" (current count: {len(tenant_state.admins)} Global Admins)"
+
+        return {
+            "plan_id":    str(uuid.uuid4()),
+            "agent_name": "stryker-defense",
+            "title":      f"Stryker Breach Defence — Admin Hardening{admin_context}",
+            "reasoning":  reasoning,
+            "blast_radius": [
+                "Admins without FIDO2/WHfB enrolled will lose access to admin portals",
+                "Coordinate FIDO2 key procurement and distribution before enforcing",
+                "New GA creation alert may generate noise if PIM activations are frequent",
+                "Review PIM configuration with all admins before reducing permanent assignments",
+            ],
+            "graph_api_calls": [
+                {
+                    "step":        1,
+                    "description": "Create alert on new Global Administrator account creation",
+                    "method":      "POST",
+                    "endpoint":    "/security/alerts_v2",
+                    "body": {
+                        "displayName": "CRITICAL ALERT — New Global Admin Created [tenant.chat]",
+                        "description": (
+                            "Fires immediately when a new account is assigned the Global "
+                            "Administrator role.  The Stryker attacker created a backdoor GA "
+                            "account after the initial compromise.  Investigate any alert "
+                            "within minutes — not hours."
+                        ),
+                        "severity": "high",
+                        "status":   "active",
+                        "category": "PrivilegeEscalation",
+                    },
+                    "reversible":        True,
+                    "undo_instructions": "DELETE /security/alerts_v2/{id}",
+                },
+                {
+                    "step":        2,
+                    "description": "Create CA policy requiring phishing-resistant MFA for admin portals (report-only)",
+                    "method":      "POST",
+                    "endpoint":    "/identity/conditionalAccess/policies",
+                    "body": {
+                        "displayName": "REQUIRE — Phish-Resistant MFA for Admin Portals [tenant.chat]",
+                        "state":       "enabledForReportingButNotEnforced",
+                        "conditions": {
+                            "users": {
+                                "includeRoles": [
+                                    "62e90394-69f5-4237-9190-012177145e10",  # Global Administrator
+                                    "e8611ab8-c189-46e8-94e1-60213ab1f814",  # Privileged Role Administrator
+                                ],
+                            },
+                            "applications": {
+                                "includeApplications": ["MicrosoftAdminPortals"],
+                            },
+                        },
+                        "grantControls": {
+                            "operator":               "OR",
+                            "authenticationStrength": {
+                                "id": "00000000-0000-0000-0000-000000000004",
+                            },
+                        },
+                    },
+                    "reversible":        True,
+                    "undo_instructions": "Delete the CA policy with id returned in response.",
+                },
+                {
+                    "step":        3,
+                    "description": "Query current Global Admin count (read-only baseline check)",
+                    "method":      "GET",
+                    "endpoint":    (
+                        "/directoryRoles?$filter=displayName eq 'Global Administrator'"
+                        "&$expand=members($select=id,displayName,userPrincipalName)"
+                    ),
+                    "body":        None,
+                    "reversible":        True,
+                    "undo_instructions": "Read-only — no undo needed.",
+                },
+            ],
+            "requires_approval": True,
+            "warning": (
+                "The phishing-resistant MFA CA policy is in REPORT-ONLY mode.  "
+                "Before enforcing: ensure ALL Global Admins have registered FIDO2 "
+                "security keys or Windows Hello for Business.  Enforcing before "
+                "registration will lock admins out of admin portals permanently "
+                "(until break-glass accounts are used)."
+            ),
+        }
+
+    # ── Agent helpers ──────────────────────────────────────────────────────
+
+    def _agent_context(
+        self,
+        assessment:   AssessmentResult | None,
+        tenant_state: TenantState | None,
+        control_ids:  list[str],
+    ) -> str:
+        """Build focused context for agent LLM calls."""
+        lines = []
+        if tenant_state:
+            lines.append(
+                f"TENANT: {tenant_state.tenant_domain} | "
+                f"Users: {len(tenant_state.users)} | "
+                f"Global Admins: {len(tenant_state.admins)} | "
+                f"CA Policies: {len(tenant_state.ca_policies)}"
+            )
+        if assessment:
+            relevant = [
+                f for f in assessment.findings
+                if f.control_id in control_ids
+            ]
+            if relevant:
+                lines.append("RELEVANT FINDINGS:")
+                for f in relevant:
+                    lines.append(
+                        f"  [{f.status.value.upper()}] {f.control_id} — {f.title}"
+                    )
+                    if f.delta:
+                        lines.append(f"    Delta: {f.delta}")
         return "\n".join(lines)
