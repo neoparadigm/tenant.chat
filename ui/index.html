@@ -1295,8 +1295,19 @@ function renderGraph(data) {
 
   const nodeSel = nodeG.selectAll('g.node-g')
     .data(nodes).join('g')
-    .attr('class', 'node-g').style('cursor', 'pointer')
-    .on('click', (ev, d) => { ev.stopPropagation(); onNodeClick(d); });
+    .attr('class', 'node-g').style('cursor', 'grab')
+    .on('click', (ev, d) => { ev.stopPropagation(); onNodeClick(d); })
+    .call(d3.drag()
+      .on('start', (ev, d) => {
+        if (!ev.active) _simulation.alphaTarget(0.3).restart();
+        d.fx = d.x; d.fy = d.y;
+      })
+      .on('drag', (ev, d) => { d.fx = ev.x; d.fy = ev.y; })
+      .on('end', (ev, d) => {
+        if (!ev.active) _simulation.alphaTarget(0);
+        d.fx = null; d.fy = null;  // release — node floats back gently
+      })
+    );
 
   // Node circle
   nodeSel.append('circle')
@@ -1333,15 +1344,19 @@ function renderGraph(data) {
       });
     });
 
+  // ── Pre-position nodes so sequence is visible from frame 1 ─────────────
+  nodes.forEach(n => { n.x = targetX(n); n.y = targetY(n); });
+
   // ── Simulation ──────────────────────────────────────────────────────────
   if (_simulation) _simulation.stop();
   _simulation = d3.forceSimulation(nodes)
-    .force('link',    d3.forceLink(links).id(d => d.id).distance(colW * 0.8).strength(0.3))
-    .force('charge',  d3.forceManyBody().strength(-120))
-    .force('collide', d3.forceCollide(32))
-    // Strong positional forces to enforce step/row layout
-    .force('x', d3.forceX(d => targetX(d)).strength(0.7))
-    .force('y', d3.forceY(d => targetY(d)).strength(campaigns.length > 1 ? 0.9 : 0.4))
+    .force('link',    d3.forceLink(links).id(d => d.id).distance(colW * 0.75).strength(0.4))
+    .force('charge',  d3.forceManyBody().strength(-220))
+    .force('collide', d3.forceCollide(34))
+    // Gentle nudge — maintains rough order without locking nodes in place
+    .force('x', d3.forceX(d => targetX(d)).strength(0.06))
+    .force('y', d3.forceY(d => targetY(d)).strength(campaigns.length > 1 ? 0.12 : 0.04))
+    .alphaDecay(0.012)
     .on('tick', () => {
       edgeSel.attr('d', d => {
         const sx = d.source.x, sy = d.source.y;
