@@ -13,3 +13,4 @@ tenantchat-*.pdf
 tenantchat-*.html
 *.pdf
 *.html
+.claude/
