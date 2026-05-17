@@ -1141,135 +1141,240 @@ function filterCampaign(campaign, el) {
   loadAttackGraph(campaign);
 }
 
+// Compute BFS step depth per node within its campaign (1-indexed)
+function computeSteps(nodes, rawEdges) {
+  // rawEdges have string source/target at this point
+  const steps = {};
+  const campaigns = [...new Set(nodes.map(n => n.campaign_id))];
+
+  campaigns.forEach(campId => {
+    const campNodes  = nodes.filter(n => n.campaign_id === campId);
+    const campIds    = new Set(campNodes.map(n => n.id));
+    const campEdges  = rawEdges.filter(e => campIds.has(e.source) && campIds.has(e.target));
+    const hasIncoming = new Set(campEdges.map(e => e.target));
+    const starts = campNodes.filter(n => !hasIncoming.has(n.id));
+
+    // adj list
+    const adj = {};
+    campNodes.forEach(n => { adj[n.id] = []; });
+    campEdges.forEach(e => adj[e.source].push(e.target));
+
+    // BFS — track max depth
+    const depth = {};
+    campNodes.forEach(n => { depth[n.id] = 1; });
+    const queue = starts.map(n => ({ id: n.id, d: 1 }));
+    const visited = new Set();
+    while (queue.length) {
+      const { id, d } = queue.shift();
+      if (visited.has(id)) continue;
+      visited.add(id);
+      depth[id] = Math.max(depth[id], d);
+      (adj[id] || []).forEach(tid => {
+        depth[tid] = Math.max(depth[tid] || 1, d + 1);
+        if (!visited.has(tid)) queue.push({ id: tid, d: d + 1 });
+      });
+    }
+    Object.assign(steps, depth);
+  });
+  return steps;
+}
+
 function renderGraph(data) {
-  const wrap  = document.getElementById('graph-svg-wrap');
-  const svg   = d3.select('#graph-svg');
+  const wrap = document.getElementById('graph-svg-wrap');
+  const svg  = d3.select('#graph-svg');
   svg.selectAll('*').remove();
 
-  const W = wrap.clientWidth  || 800;
-  const H = wrap.clientHeight || 500;
+  const W = wrap.clientWidth  || 900;
+  const H = wrap.clientHeight || 520;
 
-  // Build node/link arrays for d3 (must be copies for simulation)
   const nodes = data.nodes.map(d => ({ ...d }));
   const nodeMap = new Map(nodes.map(n => [n.id, n]));
   const links = data.edges
     .filter(e => nodeMap.has(e.source) && nodeMap.has(e.target))
-    .map(e => ({ ...e, source: e.source, target: e.target }));
+    .map(e => ({ ...e }));
 
+  // ── Compute sequence layout ─────────────────────────────────────────────
+  const steps = computeSteps(nodes, data.edges);
+  nodes.forEach(n => { n._step = steps[n.id] || 1; });
+
+  // Campaign row order (consistent; sorted by severity then id)
+  const CAMP_ORDER = [
+    'handala-stryker','storm-2372','aitm-tycoon2fa',
+    'qr-phishing','sharepoint-bec','domain-spoofing',
+  ];
+  const campaigns = _graphCamp === 'all'
+    ? CAMP_ORDER.filter(c => nodes.some(n => n.campaign_id === c))
+    : [_graphCamp];
+
+  const PAD_X  = 80;
+  const PAD_Y  = 60;
+  const maxStep = Math.max(...nodes.map(n => n._step));
+  const colW = (W - PAD_X * 2) / maxStep;
+  const rowH = campaigns.length > 1
+    ? (H - PAD_Y * 2) / campaigns.length
+    : H / 2;
+
+  function targetX(d) { return PAD_X + (d._step - 0.5) * colW; }
+  function targetY(d) {
+    const row = campaigns.indexOf(d.campaign_id);
+    return PAD_Y + (row >= 0 ? row : 0) * rowH + rowH / 2;
+  }
+
+  // ── SVG setup ───────────────────────────────────────────────────────────
   svg.attr('viewBox', `0 0 ${W} ${H}`);
 
-  // Arrow marker
   svg.append('defs').append('marker')
-    .attr('id', 'arrow')
-    .attr('viewBox', '0 -4 8 8')
-    .attr('refX', 22).attr('refY', 0)
+    .attr('id', 'arrow').attr('viewBox', '0 -4 8 8')
+    .attr('refX', 24).attr('refY', 0)
     .attr('markerWidth', 6).attr('markerHeight', 6)
     .attr('orient', 'auto')
-    .append('path')
-    .attr('d', 'M0,-4L8,0L0,4')
-    .attr('fill', '#444466');
+    .append('path').attr('d', 'M0,-4L8,0L0,4').attr('fill', '#555577');
 
   const g = svg.append('g');
+  svg.call(d3.zoom().scaleExtent([0.25, 4])
+    .on('zoom', ev => g.attr('transform', ev.transform)));
 
-  // Zoom
-  svg.call(d3.zoom()
-    .scaleExtent([0.3, 3])
-    .on('zoom', ev => g.attr('transform', ev.transform))
-  );
+  // ── Step column headers ─────────────────────────────────────────────────
+  if (maxStep <= 8) {
+    const headerG = g.append('g').attr('class', 'step-headers');
+    for (let s = 1; s <= maxStep; s++) {
+      const x = PAD_X + (s - 0.5) * colW;
+      headerG.append('text')
+        .attr('x', x).attr('y', 18)
+        .attr('text-anchor', 'middle')
+        .attr('font-family', 'JetBrains Mono, monospace')
+        .attr('font-size', 9)
+        .attr('fill', '#44446a')
+        .attr('letter-spacing', 1)
+        .text(`step ${s}`);
+      headerG.append('line')
+        .attr('x1', x).attr('y1', 24)
+        .attr('x2', x).attr('y2', H - 10)
+        .attr('stroke', '#1e1e2a')
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '3,4');
+    }
+  }
 
-  // Campaign boundary hulls (convex hull per campaign)
-  // Draw before edges/nodes so they are behind
-  const campGroups = d3.group(nodes, d => d.campaign_id);
+  // ── Campaign row labels ─────────────────────────────────────────────────
+  if (campaigns.length > 1) {
+    const labelG = g.append('g').attr('class', 'camp-labels');
+    campaigns.forEach((campId, row) => {
+      const y = PAD_Y + row * rowH + rowH / 2;
+      const campName = (data.campaigns.find(c => c.id === campId) || {}).name || campId;
+      labelG.append('text')
+        .attr('x', 10).attr('y', y)
+        .attr('dominant-baseline', 'middle')
+        .attr('font-family', 'JetBrains Mono, monospace')
+        .attr('font-size', 8).attr('fill', CAMPAIGN_COLORS[campId] || '#555577')
+        .attr('letter-spacing', 0.5)
+        .style('writing-mode', 'vertical-lr')
+        .text(campName);
+      if (row > 0) {
+        labelG.append('line')
+          .attr('x1', 0).attr('y1', PAD_Y + row * rowH)
+          .attr('x2', W).attr('y2', PAD_Y + row * rowH)
+          .attr('stroke', '#1e1e2a').attr('stroke-width', 1);
+      }
+    });
+  }
 
-  const hullG = g.append('g').attr('class', 'hulls');
+  const hullG  = g.append('g');
+  const edgeG  = g.append('g');
+  const nodeG  = g.append('g');
 
-  // Edges
-  const edgeG = g.append('g');
   const edgeSel = edgeG.selectAll('.edge-path')
     .data(links).join('path')
     .attr('class', 'edge-path')
-    .attr('stroke', '#333355')
-    .attr('stroke-width', 1.5)
+    .attr('stroke', '#333355').attr('stroke-width', 1.5)
     .attr('marker-end', 'url(#arrow)');
 
   const edgeLabelSel = edgeG.selectAll('.edge-label')
     .data(links).join('text')
-    .attr('class', 'edge-label')
-    .text(d => d.label);
+    .attr('class', 'edge-label').text(d => d.label);
 
-  // Nodes
-  const nodeG = g.append('g');
   const nodeSel = nodeG.selectAll('g.node-g')
     .data(nodes).join('g')
-    .attr('class', 'node-g')
-    .style('cursor', 'pointer')
+    .attr('class', 'node-g').style('cursor', 'pointer')
     .on('click', (ev, d) => { ev.stopPropagation(); onNodeClick(d); });
 
+  // Node circle
   nodeSel.append('circle')
     .attr('class', 'node-circle')
     .attr('r', d => NODE_TYPE_RADIUS[d.node_type] || 14)
-    .attr('fill', d => nodeColor(d))
-    .attr('fill-opacity', 0.85)
+    .attr('fill', d => nodeColor(d)).attr('fill-opacity', 0.88)
     .attr('stroke', d => CAMPAIGN_COLORS[d.campaign_id] || '#555577');
 
+  // Step number badge (top-right of node)
+  nodeSel.append('circle')
+    .attr('cx', d => (NODE_TYPE_RADIUS[d.node_type] || 14) - 4)
+    .attr('cy', d => -(NODE_TYPE_RADIUS[d.node_type] || 14) + 4)
+    .attr('r', 7)
+    .attr('fill', '#0e0e18').attr('stroke', '#28283c').attr('stroke-width', 1);
+
+  nodeSel.append('text')
+    .attr('x', d => (NODE_TYPE_RADIUS[d.node_type] || 14) - 4)
+    .attr('y', d => -(NODE_TYPE_RADIUS[d.node_type] || 14) + 4)
+    .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
+    .attr('font-family', 'JetBrains Mono, monospace')
+    .attr('font-size', 7).attr('font-weight', 700)
+    .attr('fill', '#a0a0c0').attr('pointer-events', 'none')
+    .text(d => d._step);
+
+  // Node label (below circle)
   nodeSel.append('text')
     .attr('class', 'node-label')
-    .attr('dy', d => (NODE_TYPE_RADIUS[d.node_type] || 14) + 12)
+    .attr('dy', d => (NODE_TYPE_RADIUS[d.node_type] || 14) + 11)
     .attr('fill', 'var(--text-2)')
     .each(function(d) {
       const el = d3.select(this);
-      const lines = d.label.split('\n');
-      lines.forEach((line, i) => {
+      d.label.split('\n').forEach((line, i) => {
         el.append('tspan').attr('x', 0).attr('dy', i === 0 ? 0 : 11).text(line);
       });
     });
 
-  // Simulation
+  // ── Simulation ──────────────────────────────────────────────────────────
   if (_simulation) _simulation.stop();
   _simulation = d3.forceSimulation(nodes)
-    .force('link',    d3.forceLink(links).id(d => d.id).distance(110).strength(0.6))
-    .force('charge',  d3.forceManyBody().strength(-280))
-    .force('center',  d3.forceCenter(W / 2, H / 2))
-    .force('collide', d3.forceCollide(30))
+    .force('link',    d3.forceLink(links).id(d => d.id).distance(colW * 0.8).strength(0.3))
+    .force('charge',  d3.forceManyBody().strength(-120))
+    .force('collide', d3.forceCollide(32))
+    // Strong positional forces to enforce step/row layout
+    .force('x', d3.forceX(d => targetX(d)).strength(0.7))
+    .force('y', d3.forceY(d => targetY(d)).strength(campaigns.length > 1 ? 0.9 : 0.4))
     .on('tick', () => {
-      // curved edges
       edgeSel.attr('d', d => {
         const sx = d.source.x, sy = d.source.y;
         const tx = d.target.x, ty = d.target.y;
-        const dx = tx - sx, dy = ty - sy;
-        const dr = Math.sqrt(dx * dx + dy * dy) * 1.3;
+        const dr = Math.hypot(tx - sx, ty - sy) * 1.4;
         return `M${sx},${sy}A${dr},${dr} 0 0,1 ${tx},${ty}`;
       });
       edgeLabelSel
-        .attr('x', d => (d.source.x + d.target.x) / 2)
-        .attr('y', d => (d.source.y + d.target.y) / 2);
+        .attr('x', d => (d.source.x + d.target.x) / 2 + 6)
+        .attr('y', d => (d.source.y + d.target.y) / 2 - 4);
       nodeSel.attr('transform', d => `translate(${d.x},${d.y})`);
 
-      // Redraw convex hulls per campaign
+      // Convex hulls per campaign
       hullG.selectAll('*').remove();
-      campGroups.forEach((campNodes, campId) => {
+      d3.group(nodes, n => n.campaign_id).forEach((campNodes, campId) => {
         const pts = campNodes.map(n => [n.x, n.y]);
         if (pts.length < 2) return;
         const hull = pts.length >= 3 ? d3.polygonHull(pts) : pts;
         if (!hull) return;
+        const cx = d3.mean(pts, p => p[0]), cy = d3.mean(pts, p => p[1]);
         const padded = hull.map(([x, y]) => {
-          const cx = d3.mean(pts, p => p[0]);
-          const cy = d3.mean(pts, p => p[1]);
-          const angle = Math.atan2(y - cy, x - cx);
-          return [x + Math.cos(angle) * 30, y + Math.sin(angle) * 30];
+          const a = Math.atan2(y - cy, x - cx);
+          return [x + Math.cos(a) * 32, y + Math.sin(a) * 32];
         });
         hullG.append('path')
           .attr('d', `M${padded.join('L')}Z`)
-          .attr('fill', CAMPAIGN_COLORS[campId] || '#555577')
-          .attr('fill-opacity', 0.05)
+          .attr('fill', CAMPAIGN_COLORS[campId] || '#555577').attr('fill-opacity', 0.05)
           .attr('stroke', CAMPAIGN_COLORS[campId] || '#555577')
-          .attr('stroke-opacity', 0.2)
-          .attr('stroke-width', 1.5)
+          .attr('stroke-opacity', 0.18).attr('stroke-width', 1.5)
           .attr('stroke-dasharray', '4,3');
       });
     });
 
-  // Click on background closes detail
   svg.on('click', () => closeGraphDetail());
 }
 
@@ -1281,7 +1386,7 @@ function onNodeClick(node) {
   document.getElementById('gd-title').textContent  = node.label.replace('\n', ' — ');
   document.getElementById('gd-campaign').textContent = node.campaign_name || node.campaign_id;
   document.getElementById('gd-mitre').textContent =
-    `${node.mitre_id} · ${node.mitre_name} · ${node.node_type.replace(/_/g,' ')}`;
+    `step ${node._step || '?'} · ${node.mitre_id} · ${node.mitre_name} · ${node.node_type.replace(/_/g,' ')}`;
   document.getElementById('gd-desc').textContent = node.description;
 
   const ctlWrap = document.getElementById('gd-controls');
