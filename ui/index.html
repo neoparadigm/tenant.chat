@@ -593,6 +593,19 @@ select.btn { appearance: none; cursor: pointer; }
       </div>
     </div>
 
+    <!-- AGENTS -->
+    <div class="sb-group">
+      <div class="sb-label sb-cat" onclick="toggleSb(this)"><span class="sb-arrow">▸</span> agents</div>
+      <div class="sb-children">
+        <div class="sb-item" onclick="runAgentDirect('device-code-block')"><span class="si c-red">▶</span>device-code-block</div>
+        <div class="sb-item" onclick="runAgentDirect('aitm-hardening')"><span class="si c-red">▶</span>aitm-hardening</div>
+        <div class="sb-item" onclick="runAgentDirect('stryker-defense')"><span class="si c-red">▶</span>stryker-defense</div>
+        <div class="sb-item" onclick="runAgentDirect('inbox-rule-audit')"><span class="si c-amber">▶</span>inbox-rule-audit</div>
+        <div class="sb-item" onclick="runAgentDirect('break-glass-setup')"><span class="si c-amber">▶</span>break-glass-setup</div>
+      </div>
+    </div>
+    <div class="sb-sep"></div>
+
     <!-- SCORE -->
     <div class="sb-score" id="sb-score">
       <div class="ss-row"><div class="ss-num" id="ss-num">--</div><div class="ss-label">/100</div></div>
@@ -1291,9 +1304,10 @@ function onNodeClick(node) {
   }
 
   const agentBtn = document.getElementById('gd-agent-btn');
-  if (node.status === 'fail' && node.suggested_agent) {
+  if (node.suggested_agent && node.status !== 'pass') {
     agentBtn.style.display = '';
     agentBtn.textContent   = `▶ run agent: ${node.suggested_agent}`;
+    agentBtn.style.background = node.status === 'fail' ? 'var(--red)' : '#444488';
   } else {
     agentBtn.style.display = 'none';
   }
@@ -1302,6 +1316,31 @@ function onNodeClick(node) {
 function closeGraphDetail() {
   document.getElementById('graph-detail').classList.remove('visible');
   _selectedNode = null;
+}
+
+async function runAgentDirect(agentName) {
+  nav('chat');
+  appendLine('system', `generating plan for agent: ${agentName}...`);
+  const btn = document.getElementById('send-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch(`${API}/agent/run`, {
+      method:  'POST',
+      headers: {'Content-Type': 'application/json'},
+      body:    JSON.stringify({ agent_name: agentName, control_ids: [] }),
+    });
+    if (!r.ok) {
+      const err = await r.json();
+      appendLine('error', `agent error: ${err.detail}`);
+      return;
+    }
+    _currentPlan = await r.json();
+    showHitlModal(_currentPlan);
+  } catch(e) {
+    appendLine('error', `agent run failed: ${e}`);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 async function triggerAgent() {
